@@ -1,11 +1,14 @@
 #pragma once
+// STL includes
 #include <cstdlib>
+#include <ctime>
+#include <fstream>
 #include <string>
 
 namespace bd {
 
-#ifndef LOGGER_TEMPLATE
-#define LOGGER_TEMPLATE
+#ifndef LOADDATA_TEMPLATE
+#define LOADDATA_TEMPLATE
 /*Function to load parameters from a file 'data_file'*/
 template <class type>
 bool load_data(const std::string &data_file, const std::string &data_name,
@@ -52,5 +55,29 @@ std::string ToString(const LogLevel level);
 
 int LOG(const std::string &name, const std::string &msg, const LogLevel level,
         const bool new_line = true);
+
+class Logger {
+ public: // Singleton type
+  static Logger &getInstance() {
+    static Logger instance;  // Guaranteed to be destroyed.
+                             // Instantiated on first use.
+    return instance;
+  }
+  Logger(Logger const &) = delete;
+  void operator=(Logger const &) = delete;
+
+  int LOG(const std::string &name, const std::string &msg, const LogLevel level,
+          const bool new_line = true);
+
+ private:
+  Logger();  // Constructor? (the {} brackets) are needed here.
+  ~Logger();
+
+  bd::LogLevel log_level_;
+  std::ofstream log_;
+  std::time_t rawtime_;
+  struct tm *timeinfo_;
+  std::string file_name_;
+};
 
 }  // namespace bd

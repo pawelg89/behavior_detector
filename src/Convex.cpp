@@ -10,9 +10,11 @@
 // Project includes
 #include "..\..\stdafx.h"
 #include "..\includes\BehaviorFilter.h"
-#include "..\includes\UpdateHull.h"
+#include "..\includes\collector.h"
 #include "..\includes\detected_object.h"
 #include "..\includes\logger.h"
+#include "..\includes\timer.h"
+#include "..\includes\UpdateHull.h"
 
 static int FrameCounter = 0;
 //=============================================================================
@@ -38,7 +40,7 @@ void ClearPoint2(CvPoint *p)  // zerowanie wybranego punktu
 }
 
 namespace bd {
-  
+
 using namespace std;
 using namespace cv;
 
@@ -110,16 +112,27 @@ Convex::~Convex(void) {}
 static int GloCTR = 0;
 
 void Convex::SHIELD(Mat frame, Mat fore, int view) {
+  std::string message = "";
+  bd::Timer timer(false);
   Convex_LOG("SHIELD(Mat frame, Mat fore, int view) called.", LogLevel::kMega);
+  message += timer.PrintElapsed("Convex_log");
   GloCTR++;
   this->NCM(frame, fore);
-
+  message += timer.PrintElapsed("NCM", false);
   this->track_objects(new IplImage(frame), view);
-
+  message += timer.PrintElapsed("track_objects", false);
   this->BehaviorFiltersCheck(frame);
-  imshow("frame", frame);
+  message += timer.PrintElapsed("BehaviorFiltersCheck", false);
   imshow("fore", fore);
+  message += timer.PrintElapsed("imshow", false);
   this->ClearVectors();
+  message += timer.PrintElapsed("ClearVectors", false);
+  timer.Stop();
+  if (timer.Elapsed() * 1000 > 40.0) {
+    Convex_LOG("Elapsed time[ms]: " + std::to_string(timer.Elapsed() * 1000) +
+                   " " + message,
+               LogLevel::kKilo);
+  }
 }
 
 void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
@@ -426,7 +439,7 @@ void Convex::VisualizeNCM(Mat frame) {
     putText(frame, pos_buff, temp_pos[i], font.font_face, 0.35, green);
   }
   for (size_t i = 0; i < contours.size(); i++) {
-    drawContours(frame, hulls, i, yellow, 1, 8, vector<Vec4i>(), 0, Point());
+    drawContours(frame, contours, i, yellow, 1, 8, vector<Vec4i>(), 0, Point());
   }
   for (size_t i = 0; i < hulls.size(); ++i) {
     drawContours(frame, hulls, i, green, 1, 8, vector<Vec4i>(), 0, Point());
@@ -573,8 +586,7 @@ int Convex::track_objects(IplImage *img, int c) {
 
   // zostaly obiekty
   for (int i = 0; i < (int)detected_objects.size(); i++) {
-    if (objects_mask[i] == 0)  // niepowizane
-    {
+    if (objects_mask[i] == 0) { // niepowizane
       // usowanie przy krawedziach
       if (detected_objects[i]->next_pos.x < thrsh * img->width ||
           detected_objects[i]->next_pos.x > (1 - thrsh) * img->width ||
@@ -585,11 +597,9 @@ int Convex::track_objects(IplImage *img, int c) {
         objects_mask.erase(objects_mask.begin() + i);
         i--;
         continue;
-      } else  // zostaly na srodku - sklejenie/zgubienie
-      {
+      } else { // zostaly na srodku - sklejenie/zgubienie
         if (detected_objects[i]->prediction_life_time >
-            max_prediction_length)  // zbyt dluga predykcja
-        {
+            max_prediction_length) { // zbyt dluga predykcja
           delete detected_objects[i];
           detected_objects.erase(detected_objects.begin() + i);
           objects_mask.erase(objects_mask.begin() + i);
@@ -1118,16 +1128,13 @@ void Convex::BehaviorFiltersCheck(Mat frame) {
         !detected_objects[i]->prediction_state && !detected_objects[i]->border)
       detected_objects[i]->CheckBehavior();
   }
+
   for (size_t i = 0; i < detected_objects.size(); i++) {
-    for (size_t k = 0; k < detected_objects.size(); k++) {
-      detected_objects[i]->ShowBehaviorStates(frame);
-    }
+    detected_objects[i]->ShowBehaviorStates(frame);
 
     vector<bool> behaviorFound = detected_objects[i]->IsFound();
-    for (size_t j = 0; j < behaviorFound.size(); j++)
+    for (size_t j = 0; j < behaviorFound.size(); j++) {
       if (behaviorFound[j]) {
-        std::string msg = "Detected: " + detected_objects[i]->message;
-        Convex_LOG(msg, LogLevel::kKilo);
         if (detected_objects[i]->bFilter[j]->behaviorType >= 2 &&
             detected_objects[i]->bFilter[j]->behaviorType <= 6)
           putText(frame, detected_objects[i]->message,
@@ -1141,20 +1148,26 @@ void Convex::BehaviorFiltersCheck(Mat frame) {
                   FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 255), 2);
         // Save frame with detected behavior under date name
         if (!detected_objects[i]->eventSaved[j]) {
+          Timer stoper{false};
           char namebuffer[100];
           time_t now = time(0);
           tm *ltm = localtime(&now);
-
+          stoper.PrintElapsed("prepare", true);
           CreateDirectoryA((LPCSTR) "events", NULL);
+          stoper.PrintElapsed("dir_prep", false);
           sprintf(namebuffer, "events/%dy%dm%dd %dh%dm%ds.png",
                   1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
                   ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-          cvSaveImage(namebuffer, new IplImage(frame));
+          stoper.PrintElapsed("sprintf", false);
+          //cvSaveImage(namebuffer, new IplImage(frame));
+          Collector::getInstance().detections.emplace_back(namebuffer, frame);
+          stoper.PrintElapsed("save_img", false);
           // DB->EventSave(j+1, temp);
           // cvReleaseImage(&temp);
           detected_objects[i]->eventSaved[j] = true;
         }
       }
+    }
   }
 }
 }  // namespace bd

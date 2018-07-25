@@ -11,10 +11,12 @@
 #include <opencv2\highgui.hpp>
 #include <opencv2\video\background_segm.hpp>
 // Project includes
+#include "..\includes\collector.h"
 #include "..\includes\Convex.h"
 #include "..\includes\GCapture.h"
 #include "..\includes\logger.h"
 #include "..\includes\marked_frame.h"
+#include "..\includes\timer.h"
 
 int global_counter = 0;
 static bool START = false;
@@ -191,7 +193,7 @@ void DiffImage::DiffImageAction() {
   DI_LOG("Leaving main loop. Calling destructors...", LogLevel::kDefault);
   cvReleaseCapture(&video);
   cvDestroyAllWindows();
-  cout << endl;
+  std::cout << std::endl;
 }
 
 void load_marker_coord(vector<vector<Point2f>> &marker_coord,
@@ -231,7 +233,7 @@ void DiffImage::DiffImageAction2() {
   int frameCounter = 0;
   int mode;
   if (!load_data("parameters.txt", "mode", mode)) mode = 5;
-  cout << "Chosen moode: " << mode << endl;
+  std::cout << "Chosen moode: " << mode << std::endl;
   char temp_msg[100] = {"Chosen mode: "};
   std::string temp_mode = std::to_string(mode);
   // char temp_mode[10];
@@ -273,7 +275,6 @@ void DiffImage::DiffImageAction2() {
       if (i == 1) MakeWindow(tempDir, win_size, cv::Point2i(win_x, 1));
       if (i == 2) MakeWindow(tempDir, win_size, cv::Point2i(1, win_y));
       if (i == 3) MakeWindow(tempDir, win_size, cv::Point2i(win_x, win_y));
-      MakeWindow("frame", win_size, cv::Point2i(win_x, 1));
       MakeWindow("fore", win_size, cv::Point2i(1, win_y));
     }
     if (i == 0) {
@@ -300,6 +301,7 @@ void DiffImage::DiffImageAction2() {
   char _char;
   int waitTime = 1;
   DI_LOG("Entering main loop.", LogLevel::kDefault);
+  Timer stoper;
   do {
     for (int c = 0; c < nbrViews; c++) {
       QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&start));
@@ -354,10 +356,15 @@ void DiffImage::DiffImageAction2() {
           waitTime = 1;
     }
   } while (_char != 'q' && !frame.empty());
-
+  if (_char == 'q') DI_LOG("Quit by user (<q> pressed).", LogLevel::kDefault);
+  if (frame.empty()) DI_LOG("End of stream reached.", LogLevel::kDefault);
+  stoper.PrintElapsed("Finished after");
+  for (auto img : Collector::getInstance().detections)
+    imwrite(img.first, img.second);
+  stoper.PrintElapsed("saving detections");
   DI_LOG("Leaving main loop. Calling destructors...", LogLevel::kDefault);
-  destroyAllWindows();
-  cout << endl;
+  cv::destroyAllWindows();
+  std::cout << std::endl;
 
   delete GardzinCapture;
 }
@@ -425,6 +432,7 @@ void label_objects(vector<vector<double>> &matches, vector<Convex *> blob_vec) {
       for (int j = 0; j < (int)matches[i].size() - 1; j++) {
         blob_vec[j]->detected_objects[(size_t)matches[i][j]]->number =
             object_id;
+        blob_vec[j]->detected_objects[(size_t)matches[i][j]]->SetObjNumber();
       }
       object_id++;
 

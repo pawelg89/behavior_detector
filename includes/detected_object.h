@@ -58,6 +58,7 @@ class detected_object {
   void CheckBehavior(/*std::vector<cv::Rect> vRect*/);
   std::vector<int> DetectedBehaviors();
   std::vector<bool> IsFound();
+  /*Update object number in BehaviorFilter.*/
   void SetObjNumber();
   void ShowBehaviorStates(cv::Mat frame);
 };

@@ -1,7 +1,5 @@
 #include "..\includes\logger.h"
 // STL includes
-#include <ctime>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <strstream>
@@ -65,46 +63,47 @@ LogLevel ToLogLevel(const std::string &level) {
         "ToLogLevel(): unsupported log level as string.");
 }
 
-LogLevel LoadLogger(const LogLevel level) {
-  LogLevel log_level = LogLevel::kDefault;
-  std::string log_level_str = "default";
-  if (load_data<std::string>("parameters.txt", "log_level", log_level_str))
-    log_level = ToLogLevel(log_level_str);
-  if (level == LogLevel::kOff || level == LogLevel::kOn) {
-    std::string msg = "Invalid log level specified: " + ToString(level);
-    throw std::invalid_argument(msg);
-  }
-  return log_level;
-}
-
 int LOG(const std::string &name, const std::string &msg, const LogLevel level,
         const bool new_line) {
-  LogLevel log_level = LoadLogger(level);
-  std::ofstream log;
-  if (level >= log_level) {
-    std::time_t rawtime;
-    time(&rawtime);
-    struct tm *timeinfo = localtime(&rawtime);
+  return Logger::getInstance().LOG(name, msg, level, new_line);
+}
+//-------------------------- SINGLETON LOGGER ---------------------------------
 
-    char filename_buff[100] = "";
-    std::ostrstream zapis(filename_buff, (int)sizeof(filename_buff),
-                          std::ios::app);
-    zapis << "log_" << timeinfo->tm_year + 1900 << "_" << timeinfo->tm_mon + 1
-          << "_" << timeinfo->tm_mday << ".txt" << std::ends;
+Logger::Logger() {
+  // Load log_level from config
+  std::string log_level_str = "default";
+  if (load_data<std::string>("parameters.txt", "log_level", log_level_str))
+    log_level_ = ToLogLevel(log_level_str);
+  else
+    log_level_ = LogLevel::kDefault;
+  // Create log file
+  time(&rawtime_);
+  timeinfo_ = localtime(&rawtime_);
+  file_name_ = "log_" + std::to_string(timeinfo_->tm_year + 1900) + "_" +
+               std::to_string(timeinfo_->tm_mon + 1) + "_" +
+               std::to_string(timeinfo_->tm_mday) + ".txt";
 
-    if (!log.is_open()) log.open(filename_buff, std::ios_base::app);
+  if (!log_.is_open()) log_.open(file_name_, std::ios_base::app);
+  this->LOG("Logger", "loaded.", LogLevel::kSetup);
+}
+
+Logger::~Logger() { log_.close(); }
+
+int Logger::LOG(const std::string &name, const std::string &msg,
+                const LogLevel level, const bool new_line) {
+  if (level >= log_level_) {
     if (new_line) {
-      log << "\n[" << std::setw(2) << std::setfill('0') << timeinfo->tm_hour;
-      log << ":" << std::setw(2) << std::setfill('0') << timeinfo->tm_min;
-      log << ":" << std::setw(2) << std::setfill('0') << timeinfo->tm_sec;
-      log << "] " << name << ": " << msg << std::flush;
+      log_ << "\n[" << std::setw(2) << std::setfill('0') << timeinfo_->tm_hour;
+      log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_min;
+      log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_sec;
+      log_ << "] " << name << ": " << msg << std::flush;
     } else {
-      log << msg << std::flush;
+      log_ << msg << std::flush;
     }
-    log.close();
     return 0;
   } else {
     return -1;
   }
 }
+
 }  // namespace bd

@@ -13,19 +13,19 @@ BehaviorFilter::BehaviorFilter(void) {}
 BehaviorFilter::BehaviorFilter(char* path) {
   method.resize(11, 0);
   if (!load_data("parameters.txt", "lPkt", lPkt)) lPkt = 10;
-  BF_LOG("lPkt=" + std::to_string(lPkt), LogLevel::kDetailed);
+  BF_LOG("lPkt=" + std::to_string(lPkt), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_help", method[2])) method[2] = 0;
-  BF_LOG("method_help=" + std::to_string(method[2]), LogLevel::kDetailed);
+  BF_LOG("method_help=" + std::to_string(method[2]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_faint", method[3])) method[3] = 0;
-  BF_LOG("method_faint=" + std::to_string(method[3]), LogLevel::kDetailed);
+  BF_LOG("method_faint=" + std::to_string(method[3]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_fight", method[4])) method[4] = 0;
-  BF_LOG("method_fight=" + std::to_string(method[4]), LogLevel::kDetailed);
+  BF_LOG("method_fight=" + std::to_string(method[4]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_fall", method[5])) method[5] = 0;
-  BF_LOG("method_fall=" + std::to_string(method[5]), LogLevel::kDetailed);
+  BF_LOG("method_fall=" + std::to_string(method[5]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_pain", method[6])) method[6] = 0;
-  BF_LOG("method_pain=" + std::to_string(method[6]), LogLevel::kDetailed);
+  BF_LOG("method_pain=" + std::to_string(method[6]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_kneel", method[7])) method[7] = 0;
-  BF_LOG("method_kneel=" + std::to_string(method[7]), LogLevel::kDetailed);
+  BF_LOG("method_kneel=" + std::to_string(method[7]), LogLevel::kMega);
 
   // Reading descriptor from file
   std::ifstream input;
@@ -77,13 +77,9 @@ BehaviorFilter::BehaviorFilter(char* path) {
   }
 
   // Utworz siatke stanow (automat)
-  temp_StateHandles.push_back(new BehaviorState(thresholds[0],
-                                                this->method[behaviorType],
-                                                this->lPkt));  // first state
-                                                               // just with a
-                                                               // handle to next
-                                                               // states, mostly
-                                                               // idle state
+  // first state just with a handle to next states, mostly idle state
+  temp_StateHandles.push_back(
+      new BehaviorState(thresholds[0], this->method[behaviorType], this->lPkt));
   temp_StateHandles[0]->sttNumber = 0;
   temp_StateHandles[0]->behType = behaviorType;
   // temp_StateHandles[0]->SetIdxStop( (int)behaviorDescr[0].size() );
@@ -181,12 +177,8 @@ BehaviorFilter::BehaviorFilter(char* path, int gs) {
                     buffer[i * 2 * header[1] + 2 * j + 1]));
     }
   }
-
-  temp_StateHandles.push_back(new BehaviorState(threshold));  // first state
-                                                              // just with a
-                                                              // handle to next
-                                                              // states, mostly
-                                                              // idle state
+  // first state just with a handle to next states, mostly idle state
+  temp_StateHandles.push_back(new BehaviorState(threshold));  
   temp_StateHandles[0]->sttNumber = 0;
   temp_StateHandles[0]->behType = behaviorType;
   for (int i = 0; i < header[0]; i++) {

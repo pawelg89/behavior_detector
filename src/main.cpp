@@ -9,12 +9,8 @@
 #include "..\includes\logger.h"
 
 int log_level;
-constexpr const char* kEntryMessage =
-    "-------------------------------- ENTRY POINT "
-    "--------------------------------------------------";
-constexpr const char* kFinishMessage =
-    "------------------------------ PROGRAM FINISHED "
-    "-----------------------------------------------";
+constexpr const char* kEntryMessage =  "------------ ENTRY POINT ------------";
+constexpr const char* kFinishMessage = "--------- PROGRAM FINISHED ----------";
 int VR_LOG(std::string msg, bd::LogLevel level) {
   return bd::LOG("main", msg, level);
 }
