@@ -15,15 +15,20 @@ class Collector {
   Collector(Collector const &) = delete;
   void operator=(Collector const &) = delete;
 
- public: // Exposed methods
-  std::vector<std::pair<std::string, cv::Mat>> detections;
-  
  private:
   Collector() = default;
   ~Collector() = default;
+ 
+public: // Exposed methods
+  void AddData(const std::string &key, double data);
+  void SaveData(const std::string &out_file = "collected_data.txt");
 
- private: // collected data
+  std::vector<std::pair<std::string, cv::Mat>> detections;
   
+ private: // collected data
+  std::string CheckDataFilePath(const std::string &path);
+
+  std::map<std::string, std::vector<double>> data_;
 };
 
 }  // namespace bd

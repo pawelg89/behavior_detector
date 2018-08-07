@@ -23,8 +23,8 @@ double Timer::Elapsed() {
 
 std::string Timer::PrintElapsed(const std::string &msg, bool new_line) {
   stop_ = high_resolution_clock::now();
-  auto elapsed = duration_cast<duration<double>>(stop_ - mid_time_).count();
-  std::string message = msg + "(" + ToString(elapsed) + ") ";
+  last_elapsed = duration_cast<duration<double>>(stop_ - mid_time_).count();
+  std::string message = msg + "(" + ToString(last_elapsed) + ") ";
   if (is_on_) LOG("Timer", message, LogLevel::kSetup, new_line);
   mid_time_ = high_resolution_clock::now();
   return message;

@@ -25,6 +25,8 @@ class Timer {
   /*Print to LOG directly result of Elapsed()*/
   std::string PrintElapsed(const std::string &msg = "", bool new_line = true);
 
+  double last_elapsed;
+
  private:
   std::string ToString(double duration);
 

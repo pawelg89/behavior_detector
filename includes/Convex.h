@@ -94,6 +94,9 @@ class Convex {
 
   double GetTheta(double x, double y, double alfa);
 
+  /*Function to save image containing new detected behavior.*/
+  void SaveDetectedBehaviors(detected_object *obj, cv::Mat frame) const;
+
   /*Visualize contour parts that build up into a human*/
   void ShowContourElements(int rows, int cols);
 

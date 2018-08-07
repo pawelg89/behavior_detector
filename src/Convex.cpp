@@ -114,25 +114,37 @@ static int GloCTR = 0;
 void Convex::SHIELD(Mat frame, Mat fore, int view) {
   std::string message = "";
   bd::Timer timer(false);
+  auto collector = &Collector::getInstance();
+
   Convex_LOG("SHIELD(Mat frame, Mat fore, int view) called.", LogLevel::kMega);
   message += timer.PrintElapsed("Convex_log");
+  collector->AddData("Convexlog", timer.last_elapsed);
+  
   GloCTR++;
   this->NCM(frame, fore);
   message += timer.PrintElapsed("NCM", false);
+  collector->AddData("NCM", timer.last_elapsed);
+
   this->track_objects(new IplImage(frame), view);
   message += timer.PrintElapsed("track_objects", false);
+  collector->AddData("trackobjects", timer.last_elapsed);
+
   this->BehaviorFiltersCheck(frame);
   message += timer.PrintElapsed("BehaviorFiltersCheck", false);
+  collector->AddData("BehaviorFiltersCheck", timer.last_elapsed);
+
   imshow("fore", fore);
   message += timer.PrintElapsed("imshow", false);
+  collector->AddData("imshow", timer.last_elapsed);
+
   this->ClearVectors();
-  message += timer.PrintElapsed("ClearVectors", false);
   timer.Stop();
-  if (timer.Elapsed() * 1000 > 40.0) {
-    Convex_LOG("Elapsed time[ms]: " + std::to_string(timer.Elapsed() * 1000) +
-                   " " + message,
+  double elapsed = timer.Elapsed() * 1000;
+  if (elapsed > 40.0) {
+    Convex_LOG("Elapsed time[ms]: " + std::to_string(elapsed) + " " + message,
                LogLevel::kKilo);
   }
+  collector->AddData("ConvexShield", elapsed);
 }
 
 void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
@@ -256,12 +268,7 @@ void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
     }
   }
   if (contours.size() == 0) return;
-  // logFile<<"Frame: "<<GloCTR<<", objects in scene: "<<contours.size()<<",
-  // contours sizes:";  for(int i=0; i<contours.size();i++)
-  //{
-  //	logFile<<" "<<contours[i].size();
-  //}
-  // logFile<<endl;
+
   // Przygotowanie wektorow dla Kalman Filter
   temp_rect.resize(contours.size());
   temp_pos.resize(contours.size());
@@ -429,8 +436,8 @@ void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
 void Convex::VisualizeNCM(Mat frame) {
   CvFont font;
   cvInitFont(&font, CV_FONT_VECTOR0, 0.5, 0.5, 0, 1);
-  Scalar yellow = Scalar(255, 255, 0);
-  Scalar green = Scalar(0, 255, 0);
+  auto yellow = Scalar(0, 255, 255);
+  auto green = Scalar(0, 255, 0);
   char pos_buff[100] = "";
   ostrstream zapis(pos_buff, (int)sizeof(pos_buff), ios::app);
   for (size_t i = 0; i < centers.size(); ++i) {
@@ -462,404 +469,6 @@ double Convex::Geth(Point A, Point B, Point C) {
 
 inline double Convex::GetDist(Point A, Point B) {
   return sqrt((double)(A.x - B.x) * (A.x - B.x) + (A.y - B.y) * (A.y - B.y));
-}
-
-int Convex::track_objects(IplImage *img, int c) {
-  CvFont font;
-  cvInitFont(&font, CV_FONT_VECTOR0, 1, 1, 0, 2);
-  int counter = -1;
-  int counter2 = -1;
-  double max_dist = (double)INT_MAX;
-
-  //	char buffer[10];
-  double thrsh = 0.1;
-  vector<int> points_mask;
-  vector<int> objects_mask;
-  double x = 0;
-  double y = 0;
-  double dist = 0;
-
-  double normal_dist = 100;   // maksymalna odleglosc dla obiektow powiazywanych
-  double marge_dist = 50;     // odleglosc ponizej ktorej nastepuje scalenie
-  double dismarge_dist = 50;  // odleglosc powyzej ktorej nastepuje rozklejenie
-  //
-  int trash_low_tresh = 1;
-  int trash_high_tresh = 40;
-  int max_prediction_length = 40;
-  int min_presentation_time = 0;
-
-  for (int i = 0; i < (int)temp_pos.size(); i++) {
-    points_mask.push_back(0);
-  }
-  for (int i = 0; i < (int)detected_objects.size(); i++) {
-    objects_mask.push_back(0);
-  }
-
-  for (int i = 0; i < (int)temp_pos.size(); i++) {
-    for (int j = 0; j < (int)detected_objects.size(); j++) {
-      if (objects_mask[j] == 0)  // czy dany obiekt nie zostal juz przypisany
-      {
-        if ((int)detected_objects[j]->marged_objects.size() == 0) {
-          x = pow(double(detected_objects[j]->next_pos.x - temp_pos[i].x), 2);
-          y = pow(double(detected_objects[j]->next_pos.y - temp_pos[i].y), 2);
-          dist = sqrt(x + y);
-        } else {
-          x = pow(
-              double(detected_objects[j]->KFilter->statePt.x - temp_pos[i].x),
-              2);
-          y = pow(
-              double(detected_objects[j]->KFilter->statePt.y - temp_pos[i].y),
-              2);
-          dist = sqrt(x + y);
-        }
-        if (dist < max_dist && dist < normal_dist) {
-          max_dist = dist;
-          counter = i;
-          counter2 = j;
-        }
-      }
-    }
-    if (counter2 > -1) {
-      for (int k = 0; k < (int)temp_pos.size(); k++) {
-        if (points_mask[k] == 0) {
-          x = pow(
-              double(detected_objects[counter2]->next_pos.x - temp_pos[k].x),
-              2);
-          y = pow(
-              double(detected_objects[counter2]->next_pos.y - temp_pos[k].y),
-              2);
-          dist = sqrt(x + y);
-          if (dist < max_dist) {
-            max_dist = dist;
-            counter = k;
-          }
-        }
-      }
-    }
-    if (counter2 > -1) {
-      detected_objects[counter2]->KFilter->Action(temp_pos[counter]);
-      detected_objects[counter2]->next_pos = temp_pos[counter];
-      detected_objects[counter2]->rect = temp_rect[counter];
-      detected_objects[counter2]->prediction_life_time = 0;
-      detected_objects[counter2]->prediction_state = false;
-      detected_objects[counter2]->behDescr = behDescr[counter];
-      detected_objects[counter2]->is_moving =
-          detected_objects[counter2]->detect_movement();
-      if (!detected_objects[counter2]->is_moving)
-        circle((Mat)img,
-               cvPoint(detected_objects[counter2]->rect.x +
-                           detected_objects[counter2]->rect.width,
-                       detected_objects[counter2]->rect.y),
-               10, cvScalar(255, 255, 64));
-      if ((int)detected_objects[counter2]->KFilter->kalmanv.size() >
-          min_presentation_time) {
-        if (detected_objects[counter2]->number > -1)
-          cvPutText(img,
-                    std::to_string(detected_objects[counter2]->number).c_str(),
-                    detected_objects[counter2]->KFilter->measPt, &font,
-                    cvScalar(255, 0, 0));
-        if (detected_objects[counter2]->is_inside_restricted_area == false)
-          rectangle((Mat)img, detected_objects[counter2]->rect,
-                    cvScalar(0, 255, 0), 1, 8, 0);
-        else
-          rectangle((Mat)img, detected_objects[counter2]->rect,
-                    cvScalar(0, 255, 255), 2, 8, 0);
-        detected_objects[counter2]->KFilter->print(img);  //,false);
-      }
-
-      /////////////////////////////////////////////////////////////////////////
-      if (detected_objects[counter2]->next_pos.x < 1 ||
-          detected_objects[counter2]->next_pos.x > img->width - 2 ||
-          detected_objects[counter2]->next_pos.y < 1 ||
-          detected_objects[counter2]->next_pos.y > img->height - 2) {
-        detected_objects[counter2]->border = true;
-      } else
-        detected_objects[counter2]->border = false;
-      ///////////////////////////////////////////////////////////////////////////
-      points_mask[counter] = 1;
-      objects_mask[counter2] = 1;
-      counter2 = -1;
-      counter = -1;
-      max_dist = INT_MAX;
-    }
-  }
-
-  // zostaly obiekty
-  for (int i = 0; i < (int)detected_objects.size(); i++) {
-    if (objects_mask[i] == 0) { // niepowizane
-      // usowanie przy krawedziach
-      if (detected_objects[i]->next_pos.x < thrsh * img->width ||
-          detected_objects[i]->next_pos.x > (1 - thrsh) * img->width ||
-          detected_objects[i]->next_pos.y < thrsh * img->height ||
-          detected_objects[i]->next_pos.y > (1 - thrsh) * img->height) {
-        delete detected_objects[i];
-        detected_objects.erase(detected_objects.begin() + i);
-        objects_mask.erase(objects_mask.begin() + i);
-        i--;
-        continue;
-      } else { // zostaly na srodku - sklejenie/zgubienie
-        if (detected_objects[i]->prediction_life_time >
-            max_prediction_length) { // zbyt dluga predykcja
-          delete detected_objects[i];
-          detected_objects.erase(detected_objects.begin() + i);
-          objects_mask.erase(objects_mask.begin() + i);
-          i--;
-          continue;
-        }
-        if ((int)detected_objects[i]->KFilter->kalmanv.size() <
-                trash_high_tresh &&
-            (int)detected_objects[i]->KFilter->kalmanv.size() >
-                trash_low_tresh)  // smieci
-        {
-          delete detected_objects[i];
-          detected_objects.erase(detected_objects.begin() + i);
-          objects_mask.erase(objects_mask.begin() + i);
-          i--;
-          continue;
-        }
-        bool marged = false;
-        int marged_with = -1;
-        max_dist = INT_MAX;
-        // marge detection
-        for (int k = 0; k < (int)detected_objects.size(); k++) {
-          if (objects_mask[k] == 1)  // tylko dla sledzonych obiektow obiektow
-          {
-            x = pow(double(detected_objects[i]->next_pos.x -
-                           detected_objects[k]->next_pos.x),
-                    2);
-            y = pow(double(detected_objects[i]->next_pos.y -
-                           detected_objects[k]->next_pos.y),
-                    2);
-            dist = sqrt(x + y);
-            if (dist < max_dist && dist < marge_dist) {
-              max_dist = dist;
-              marged_with = k;
-            }
-          }
-        }
-        if (marged_with != -1) {
-          marged = true;
-        }
-        if (marged)  // sklejenie
-        {
-          detected_objects[marged_with]->marged_objects.push_back(
-              detected_objects[i]);
-          detected_objects.erase(detected_objects.begin() + i);
-          objects_mask.erase(objects_mask.begin() + i);
-          i--;
-        } else  // zgubienie
-        {
-          if (detected_objects[i]->is_moving) {
-            if (!detected_objects[i]->direction_estimated)
-              detected_objects[i]->estimate_direction();
-            detected_objects[i]->KFilter->Action(
-                cvPoint((int)(detected_objects[i]->next_pos.x +
-                              detected_objects[i]->x_movement),
-                        (int)(detected_objects[i]->next_pos.y +
-                              detected_objects[i]->y_movement)));
-          }
-          detected_objects[i]->prediction_state =
-              true;  // przesuniecie bialego prostokata
-          detected_objects[i]->prediction_life_time++;
-          detected_objects[i]->next_pos = detected_objects[i]->KFilter->measPt;
-          detected_objects[i]->rect.x = detected_objects[i]->next_pos.x -
-                                        detected_objects[i]->rect.width / 2;
-          detected_objects[i]->rect.y = detected_objects[i]->next_pos.y -
-                                        detected_objects[i]->rect.height / 2;
-          if ((int)detected_objects[i]->KFilter->kalmanv.size() >
-              min_presentation_time) {
-            //		cvPutText(img,itoa(detected_objects[i]->number,buffer,10),detected_objects[i]->next_pos,&font,cvScalar(0,0,255));
-            rectangle((Mat)img, detected_objects[i]->rect,
-                      cvScalar(255, 255, 255), 1, 8, 0);
-          }
-        }
-      }
-    }
-  }
-  // przesuniecie scalonych obiektow
-  for (int i = 0; i < (int)detected_objects.size(); i++) {
-    for (int j = 0; j < (int)detected_objects[i]->marged_objects.size(); j++) {
-      if ((int)detected_objects[i]->marged_objects[j]->KFilter->kalmanv.size() <
-              trash_high_tresh &&
-          (int)detected_objects[i]->marged_objects[j]->KFilter->kalmanv.size() >
-              trash_low_tresh)  // smieci
-      {
-        delete detected_objects[i]->marged_objects[j];
-        detected_objects[i]->marged_objects.erase(
-            detected_objects[i]->marged_objects.begin() + j);
-        continue;
-      }
-      if (detected_objects[i]->marged_objects[j]->prediction_life_time >
-          max_prediction_length)  // zbyt dluga predykcja
-      {
-        delete detected_objects[i]->marged_objects[j];
-        detected_objects[i]->marged_objects.erase(
-            detected_objects[i]->marged_objects.begin() + j);
-        continue;
-      }
-
-      if (detected_objects[i]->marged_objects[j]->is_moving) {
-        if (!detected_objects[i]->marged_objects[j]->direction_estimated)
-          detected_objects[i]->marged_objects[j]->estimate_direction();
-        detected_objects[i]->marged_objects[j]->KFilter->Action(
-            cvPoint((int)(detected_objects[i]->marged_objects[j]->next_pos.x +
-                          detected_objects[i]->marged_objects[j]->x_movement),
-                    (int)(detected_objects[i]->marged_objects[j]->next_pos.y +
-                          detected_objects[i]->marged_objects[j]->y_movement)));
-      }
-      detected_objects[i]->marged_objects[j]->prediction_state = true;
-      detected_objects[i]->marged_objects[j]->prediction_life_time++;
-      detected_objects[i]->marged_objects[j]->next_pos =
-          detected_objects[i]->marged_objects[j]->KFilter->measPt;
-      detected_objects[i]->marged_objects[j]->rect.x =
-          detected_objects[i]->marged_objects[j]->next_pos.x -
-          detected_objects[i]->marged_objects[j]->rect.width / 2;
-      detected_objects[i]->marged_objects[j]->rect.y =
-          detected_objects[i]->marged_objects[j]->next_pos.y -
-          detected_objects[i]->marged_objects[j]->rect.height / 2;
-
-      if ((int)detected_objects[i]->marged_objects[j]->KFilter->kalmanv.size() >
-          min_presentation_time) {
-        //	cvPutText(img,itoa(detected_objects[i]->marged_objects[j]->number,buffer,10),detected_objects[i]->marged_objects[j]->next_pos,&font,cvScalar(0,0,255));
-        rectangle((Mat)img, detected_objects[i]->marged_objects[j]->rect,
-                  cvScalar(255, 255, 0), 1, 8, 0);
-      }
-    }
-  }
-
-  for (int i = 0; i < (int)temp_pos.size(); i++) {
-    if (points_mask[i] == 0)  // niepowizane punkty
-    {
-      bool dismarged = false;
-      int dismarged_from = -1;
-      int dismarged_index = -1;
-      max_dist = INT_MAX;
-      for (int j = 0; j < (int)detected_objects.size(); j++) {
-        for (int k = 0; k < (int)detected_objects[j]->marged_objects.size();
-             k++) {
-          x = pow(double(temp_pos[i].x -
-                         detected_objects[j]->marged_objects[k]->next_pos.x),
-                  2);
-          y = pow(double(temp_pos[i].y -
-                         detected_objects[j]->marged_objects[k]->next_pos.y),
-                  2);
-          dist = sqrt(x + y);
-          if (dist < max_dist && dist < dismarge_dist) {
-            max_dist = dist;
-            dismarged_from = j;
-            dismarged_index = k;
-          }
-        }
-      }
-      if (dismarged_from != -1) {
-        dismarged = true;
-      }
-      if (dismarged) {
-        detected_objects.push_back(
-            detected_objects[dismarged_from]->marged_objects[dismarged_index]);
-        detected_objects[dismarged_from]->marged_objects.erase(
-            detected_objects[dismarged_from]->marged_objects.begin() +
-            dismarged_index);
-        detected_objects[detected_objects.size() - 1]->KFilter->Action(
-            temp_pos[i]);
-        detected_objects[detected_objects.size() - 1]->next_pos = temp_pos[i];
-        detected_objects[detected_objects.size() - 1]->rect = temp_rect[i];
-        detected_objects[detected_objects.size() - 1]->behDescr = behDescr[i];
-        detected_objects[detected_objects.size() - 1]->prediction_life_time = 0;
-        detected_objects[detected_objects.size() - 1]->prediction_state = false;
-        detected_objects[detected_objects.size() - 1]->direction_estimated =
-            false;
-        if ((int)detected_objects[detected_objects.size() - 1]
-                ->KFilter->kalmanv.size() > min_presentation_time) {
-          //		cvPutText(img,itoa(detected_objects[detected_objects.size()-1]->number,buffer,10),detected_objects[(int)detected_objects.size()-1]->KFilter->measPt,&font,cvScalar(0,0,255));
-          rectangle((Mat)img,
-                    detected_objects[detected_objects.size() - 1]->rect,
-                    cvScalar(0, 255, 0), 1, 8, 0);
-        }
-        points_mask[i] = 1;
-
-      } else {
-        detected_object *temp_obj = new detected_object();
-        temp_obj->camera = c;
-        temp_obj->current_pos = temp_pos[i];
-        temp_obj->rect = temp_rect[i];
-        temp_obj->KFilter->Initialize(temp_pos[i]);
-        temp_obj->KFilter->Action(temp_pos[i]);
-        temp_obj->KFilter->Action(temp_pos[i]);
-        temp_obj->next_pos = temp_obj->KFilter->statePt;
-        global_counter++;
-        temp_obj->number = -1;  // global_counter;
-        temp_obj->SetObjNumber();
-        detected_objects.push_back(temp_obj);
-      }
-    }
-  }
-
-  for (size_t i = 0; i < detected_objects.size(); i++) {
-    detected_objects[i]->is_close_to = false;
-
-    if (detected_objects[i]->marged_objects.size() > 0) {
-      for (size_t j = 0; j < detected_objects[i]->marged_objects.size(); j++)
-        detected_objects[i]->marged_objects[j]->is_close_to = true;
-      detected_objects[i]->is_close_to = true;
-      continue;
-    }
-    for (size_t j = 0; j < detected_objects.size(); j++) {
-      if (i == j) continue;
-      detected_objects[i]->is_close_to = is_close_to(i, j);
-      if (detected_objects[i]->is_close_to) break;
-    }
-  }
-  for (size_t i = 0; i < detected_objects.size(); i++) {
-    if (detected_objects[i]->is_close_to)
-      cvCircle(
-          img,
-          cvPoint(detected_objects[i]->rect.x, detected_objects[i]->rect.y), 2,
-          cvScalar(255, 255, 0));
-    for (size_t j = 0; j < detected_objects[i]->marged_objects.size(); j++) {
-      if (detected_objects[i]->marged_objects[j]->is_close_to)
-        cvCircle(img,
-                 cvPoint(detected_objects[i]->marged_objects[j]->rect.x,
-                         detected_objects[i]->rect.y),
-                 2, cvScalar(255, 255, 0));
-    }
-  }
-  // temp_pos.clear();
-  // temp_rect.clear();
-  return 0;
-}
-
-bool Convex::is_close_to(int master_index, int slave_index) {
-  int thrsh;
-  double multiplier = 1.5;
-  double x;
-  double y;
-  x = (detected_objects[master_index]->next_pos.x -
-       detected_objects[slave_index]->next_pos.x) *
-      (detected_objects[master_index]->next_pos.x -
-       detected_objects[slave_index]->next_pos.x);
-  y = (detected_objects[master_index]->next_pos.y -
-       detected_objects[slave_index]->next_pos.y) *
-      (detected_objects[master_index]->next_pos.y -
-       detected_objects[slave_index]->next_pos.y);
-  thrsh =
-      static_cast<int>(multiplier * detected_objects[master_index]->rect.width);
-  if (sqrt(x + y) < thrsh) {
-    return true;
-  }
-  return false;
-}
-
-bool Convex::is_background_ok(int width, int height) {
-  double area = width * height;
-  double area_thrsh = 0.6;
-  double accu = 0;
-  for (size_t i = 0; i < detected_objects.size(); i++) {
-    accu += detected_objects[i]->rect.area();
-  }
-  if (accu / area < area_thrsh) return true;
-  detected_objects.clear();
-  return false;
 }
 
 double Rest(double x, double y) {
@@ -1123,51 +732,42 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
 
 //--------------------------- Behavior Filtering ------------------------------
 void Convex::BehaviorFiltersCheck(Mat frame) {
-  for (size_t i = 0; i < detected_objects.size(); i++) {
-    if (detected_objects[i]->behDescr.size() > 0 &&
-        !detected_objects[i]->prediction_state && !detected_objects[i]->border)
-      detected_objects[i]->CheckBehavior();
+  for (const auto &obj : detected_objects) {
+    if (obj->behDescr.size() > 0 && !obj->prediction_state && !obj->border)
+      obj->CheckBehavior();
+    obj->ShowBehaviorStates(frame);
+    SaveDetectedBehaviors(obj, frame);
   }
+}
 
-  for (size_t i = 0; i < detected_objects.size(); i++) {
-    detected_objects[i]->ShowBehaviorStates(frame);
-
-    vector<bool> behaviorFound = detected_objects[i]->IsFound();
-    for (size_t j = 0; j < behaviorFound.size(); j++) {
-      if (behaviorFound[j]) {
-        if (detected_objects[i]->bFilter[j]->behaviorType >= 2 &&
-            detected_objects[i]->bFilter[j]->behaviorType <= 6)
-          putText(frame, detected_objects[i]->message,
-                  cvPoint(detected_objects[i]->rect.x,
-                          detected_objects[i]->rect.y - 11),
-                  FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255), 2);
-        else
-          putText(frame, detected_objects[i]->message,
-                  cvPoint(detected_objects[i]->rect.x,
-                          detected_objects[i]->rect.y - 11),
-                  FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 255), 2);
-        // Save frame with detected behavior under date name
-        if (!detected_objects[i]->eventSaved[j]) {
-          Timer stoper{false};
-          char namebuffer[100];
-          time_t now = time(0);
-          tm *ltm = localtime(&now);
-          stoper.PrintElapsed("prepare", true);
-          CreateDirectoryA((LPCSTR) "events", NULL);
-          stoper.PrintElapsed("dir_prep", false);
-          sprintf(namebuffer, "events/%dy%dm%dd %dh%dm%ds.png",
-                  1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
-                  ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-          stoper.PrintElapsed("sprintf", false);
-          //cvSaveImage(namebuffer, new IplImage(frame));
-          Collector::getInstance().detections.emplace_back(namebuffer, frame);
-          stoper.PrintElapsed("save_img", false);
-          // DB->EventSave(j+1, temp);
-          // cvReleaseImage(&temp);
-          detected_objects[i]->eventSaved[j] = true;
-        }
+void Convex::SaveDetectedBehaviors(detected_object *obj, Mat frame) const {
+  vector<bool> behaviorFound = obj->IsFound();
+  for (size_t j = 0; j < behaviorFound.size(); j++) {
+    if (behaviorFound[j]) {
+      if (obj->bFilter[j]->behaviorType >= 2 &&
+          obj->bFilter[j]->behaviorType <= 6) {
+        putText(frame, obj->message, cvPoint(obj->rect.x, obj->rect.y - 11),
+                FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255), 2);
+      } else {
+        putText(frame, obj->message, cvPoint(obj->rect.x, obj->rect.y - 11),
+                FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 255), 2);
+      }
+      // Save frame with detected behavior under date name
+      if (!obj->eventSaved[j]) {
+        Timer stoper{false};
+        char namebuffer[100];
+        time_t now = time(0);
+        tm *ltm = localtime(&now);
+        CreateDirectoryA((LPCSTR) "events", NULL);
+        sprintf(namebuffer, "events/%dy%dm%dd %dh%dm%ds.png",
+                1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
+                ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+        Collector::getInstance().detections.emplace_back(namebuffer, frame);
+        obj->eventSaved[j] = true;
+        stoper.PrintElapsed("save_img");
       }
     }
   }
 }
+
 }  // namespace bd
