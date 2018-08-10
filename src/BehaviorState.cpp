@@ -207,77 +207,6 @@ void BehaviorState::SaveStatistic(std::vector<PointNorm> inputVector) {
 
 //----------------------------- P U B L I C -----------------------------------
 
-// BehaviorState* BehaviorState::ChangeState(vector<PointNorm> inputVector)
-//{
-//	if(statsON)
-//		SaveStatistic(inputVector);
-//	bool accepted = false;
-//	//Search best possible next state
-//	int chosenState = 0;
-//	double bestDistance = numeric_limits<double>::max();
-//	for(int i=0; i<(int)nextStates.size();i++)
-//	{
-//		double tempDistance = 0.0;
-//		int mistakes = 1;
-//		for(int j=1; j<(int)nextStates[i]->acceptableInput.size(); j++)
-//		{
-//			tempDistance += GetDist(inputVector[j],
-// nextStates[i]->acceptableInput[j]);
-//			if(GetDist(inputVector[j],
-// nextStates[i]->acceptableInput[j]) <= nextStates[i]->threshold)
-//			{
-//				accepted = true;
-//				if((j ==
-//(int)nextStates[i]->acceptableInput.size()-1)
-//&& (tempDistance < bestDistance))
-//				{
-//					chosenState = i;
-//					bestDistance = tempDistance;
-//				}
-//			}
-//			else if(mistakes > 0)
-//				mistakes--;
-//			else
-//			{
-//				accepted = false;
-//				break;
-//			}
-//		}
-//	}
-//	//If possible move to that state
-//	if(accepted)
-//	{
-//		if(nextStates[chosenState]->lastState && behType == 3)
-//		{
-//			if(faintCounter <= 1)
-//			{
-//				idleCounter = 0;
-//				return this->nextStates[chosenState];
-//			}
-//			else
-//				faintCounter--;
-//		}
-//		else
-//		{
-//			idleCounter = 0;
-//			return this->nextStates[chosenState];
-//		}
-//	}
-//	//If couldn't change state, check idle counter
-//	if(idleCounter >= 90)
-//	{
-//		cout<<"Idle counter filled. Returning to the first state.
-// Behavior: "<<behType<<endl; 		idleCounter = 0; 		return
-// NULL;
-//	}
-//	else
-//	{
-//		if(this->sttNumber >= 1)
-//			idleCounter++;
-//		return this;
-//	}
-//}
-
 BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
                                           bool isMoving) {
   BS_LOG("ChangeState()", LogLevel::kMega, true);
@@ -349,9 +278,9 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
   }
   // If possible move to that state
   if (accepted) {
-    if (nextStates[chosenState]->sttNumber == 10) {
+    /*if (nextStates[chosenState]->sttNumber == 10) {
       std::cout << std::endl;
-    }
+    }*/
     if (nextStates[chosenState]->lastState == true && behType == 3) {
       if (!isMoving)  // Fainted people don't move... usually
       {
@@ -367,15 +296,15 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
     }
   }
   if (idleCounter >= 70) {
-    std::cout << "Idle counter filled. Returning to the first state. Behavior: "
-              << behType << std::endl;
+    std::string msg =
+        "Idle counter filled. Returning to the first state. Behavior: " +
+        std::to_string(behType);
+    BS_LOG(msg, LogLevel::kKilo);
     idleCounter = 0;
     return NULL;
   } else {
     if (this->sttNumber >= 1) {
       idleCounter++;
-      // cout<<"State: "<<this->sttNumber<<" has idleCounter:
-      // "<<idleCounter<<endl;
     }
     return this;
   }

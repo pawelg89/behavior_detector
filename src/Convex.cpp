@@ -27,7 +27,6 @@ void MouseEvent2(int ev, int x, int y, int flags, void *param) {
     case CV_EVENT_LBUTTONDOWN:
       pt2->x = x;
       pt2->y = y;
-      // cout<<"X = "<<pt->x<<"	Y = "<<pt->y<<endl;
       break;
     default:
       break;
@@ -142,7 +141,7 @@ void Convex::SHIELD(Mat frame, Mat fore, int view) {
   double elapsed = timer.Elapsed() * 1000;
   if (elapsed > 40.0) {
     Convex_LOG("Elapsed time[ms]: " + std::to_string(elapsed) + " " + message,
-               LogLevel::kKilo);
+               LogLevel::kDefault);
   }
   collector->AddData("ConvexShield", elapsed);
 }

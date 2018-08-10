@@ -25,6 +25,7 @@ vector<BackgroundSubtractorMOG2 *> bg_vec;
 vector<int> gc_frames_count;
 vector<VideoCapture *> video{};
 bool kAsynchronous;
+std::atomic<bool> finish_requested = false;
 
 unsigned int __stdcall buffer_thread(void *arg) {
   int cameraNumber = (int)arg;
@@ -33,7 +34,7 @@ unsigned int __stdcall buffer_thread(void *arg) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     cout << "FAAK" << endl;
   }
-  while (1) {
+  while (!finish_requested) {
     while (!TryEnterCriticalSection(&critical[cameraNumber])) {
     }
     if (!kAsynchronous && gc_frames_count[cameraNumber] > 0) {
@@ -54,15 +55,17 @@ unsigned int __stdcall buffer_thread(void *arg) {
 
   // cvReleaseCapture(&video);
   video[cameraNumber]->release();
+  std::cout << "video[cameraNumber]->release(); DONE" << std::endl;
   return 0;
 }
 //---------------------------------------------------------------------------
 //-------------------KONIEC STREFY-------------------------------------------
 //---------------------------------------------------------------------------
 
-GCapture::GCapture(void) {}
+GCapture::GCapture(void) { finish_requested = false; }
 
 GCapture::GCapture(int cams_number, bool async) {
+  finish_requested = false;
   buffer.resize(cams_number);
   fore_vec.resize(cams_number);
   critical.resize(cams_number);
@@ -132,11 +135,21 @@ bool GCapture::IsLiveCamera(const std::string &path) {
 
 GCapture::~GCapture(void) {
   // Usuwanie watkow
+  std::cout << "Closing GCapture..." << std::endl;
+  finish_requested = true;
   for (int i = 0; i < (int)camThreads_.size(); i++) {
     TerminateThread(camThreads_[i], 0);
     CloseHandle(camThreads_[i]);
     CloseHandle(eventStart[i]);
   }
+  critical.clear();
+  eventStart.clear();
+  buffer.clear();
+  fore_vec.clear();
+  bg_vec.clear();
+  gc_frames_count.clear();
+  video.clear();
+  std::cout << "GCapture deleted successfully." << std::endl;
 }
 
 void GCapture::QueryFrame(Mat &frame, Mat &fore, int i) {

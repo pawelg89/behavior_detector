@@ -697,8 +697,8 @@ void DiffImage::RestrictedAreaCheck(IplImage *frame, vector<Point2f> &vec,
   static int object_id = 1;
 
   if (first_run) {
-    vector<Point2f> obj_corners(
-        4);  // wspó³rzêdne zewnêtrznych wierzcho³ków markera z pliku!!!
+    // wspó³rzêdne zewnêtrznych wierzcho³ków markera z pliku!!!
+    vector<Point2f> obj_corners(4);  
     obj_corners[0] = cvPoint(0, 0);
     obj_corners[1] = cvPoint(370, 0);
     obj_corners[2] = cvPoint(370, 370);
@@ -733,7 +733,6 @@ void DiffImage::RestrictedAreaCheck(IplImage *frame, vector<Point2f> &vec,
             //	rectangle((Mat)frame,blob_vec[camera]->detected_objects[i]->rect,cvScalar(0,255,255),2);
             //	if(!blob->detected_objects[i]->is_inside_restricted_area)
             //	{
-            //	cout << '\a' << endl << "\b";
             blob_vec[camera]->detected_objects[i]->is_inside_restricted_area =
                 true;
             blob_vec[camera]->detected_objects[i]->inside_counter++;
@@ -774,7 +773,6 @@ void DiffImage::RestrictedAreaCheck(IplImage *frame, vector<Point2f> &vec,
               //		rectangle((Mat)frame,blob_vec[camera]->detected_objects[i]->rect,cvScalar(0,255,255),2);
               //	if(!blob->detected_objects[i]->is_inside_restricted_area)
               //	{
-              //	cout << '\a' << endl << "\b";
               blob_vec[camera]->detected_objects[i]->is_inside_restricted_area =
                   true;
               blob_vec[camera]->detected_objects[i]->inside_counter++;

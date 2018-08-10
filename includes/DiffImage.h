@@ -13,9 +13,9 @@ class DiffImage {
  public:
   CvMat* new_objects;
   int iterations;
-  char* file_name;
+  const std::string file_name;
   marked_frame* MFrame;
-  DiffImage(char* file);
+  DiffImage(const std::string &file);
   ~DiffImage(void);
   /*Function which dynamically sets ROI to the frame. No more used.*/
   void GetROI(IplImage* frame, IplImage* frame2);

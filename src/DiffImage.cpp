@@ -56,7 +56,7 @@ int DI_LOG(const std::string &msg, const LogLevel level) {
   return LOG("DiffImage", msg, level);
 }
 
-DiffImage::DiffImage(char *file) { file_name = file; }
+DiffImage::DiffImage(const std::string &file) : file_name(file) {}
 
 inline double GetDist(Point2f p1, Point2f p2) {
   return sqrt(((p1.x - p2.x) * (p1.x - p2.x)) +
@@ -99,7 +99,7 @@ void DiffImage::DiffImageAction() {
     // moveWindow("Create Descriptor Window",0,-1024);
   }
 
-  CvCapture *video = cvCaptureFromAVI(file_name);
+  CvCapture *video = cvCaptureFromAVI(file_name.c_str());
 
   // IplImage* frame;
   Mat mat_frame;
@@ -194,7 +194,6 @@ void DiffImage::DiffImageAction() {
   DI_LOG("Leaving main loop. Calling destructors...", LogLevel::kDefault);
   cvReleaseCapture(&video);
   cvDestroyAllWindows();
-  std::cout << std::endl;
 }
 
 void load_marker_coord(vector<vector<Point2f>> &marker_coord,
@@ -316,26 +315,13 @@ void DiffImage::DiffImageAction2() {
       x_size = frame.cols;
       y_size = frame.rows;
 
-      // bg_vec[c]->operator()(frame,fore);
-      // imshow("asd",fore);
       threshold(fore, fore, current_threshold, 255, CV_THRESH_BINARY);
-
-      /*char nameBuffer[100];
-      sprintf(nameBuffer,"d:/fightparking3/%d.bmp",frameCounter);
-      cvSaveImage(nameBuffer,frame);
-      frameCounter++;*/
 
       if (convex_vec[c]->is_background_ok(frame.cols, frame.rows)) {
         if (mode == 5) convex_vec[c]->SHIELD((Mat)frame, fore, c);
       } else {
         std::cout << "!is_background_ok(frame.cols,frame.rows)" << std::endl;
       }
-      // else
-      //{
-      //	delete bg_vec[c];//>~BackgroundSubtractorMOG2();
-      //	bg_vec[c] = new BackgroundSubtractorMOG2(10000,
-      // mogThreshold,true); 	cout<<"Background reset"<<endl;
-      //}
 
       TrackObjects3D(frame, convex_vec, marker_coord, c);
 
@@ -367,7 +353,6 @@ void DiffImage::DiffImageAction2() {
   stoper.PrintElapsed("saving collected data");
   DI_LOG("Leaving main loop. Calling destructors...", LogLevel::kDefault);
   cv::destroyAllWindows();
-  std::cout << std::endl;
 
   delete GardzinCapture;
 }
