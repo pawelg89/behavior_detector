@@ -73,7 +73,6 @@ Convex::Convex(void)
   BD = new BehaviorDescription();
   global_counter = 0;
   waitTime = 1;
-  logFile.open("logFile.txt");
   this->ClearVectors();
 }
 
@@ -102,7 +101,6 @@ Convex::Convex(int frameWidth, int frameHeight, int camID)
 
   global_counter = 0;
   waitTime = 1;
-  logFile.open("logFile.txt");
   this->ClearVectors();
 }
 

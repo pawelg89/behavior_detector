@@ -62,7 +62,6 @@ class Convex {
   int method;
   int method0, method1, method2, method3;
   int lPkt;
-  std::ofstream logFile;
 
   // Klasa pomocnicza przeliczajaca wspolrzedne
   Helper *GHelp;
