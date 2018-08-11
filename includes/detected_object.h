@@ -10,8 +10,6 @@
 namespace bd {
 
 class detected_object {
- private:
-  // Ja chce miec tutaj to miejsce w moim kodzie
  public:
   std::vector<BehaviorFilter*> bFilter;
   std::vector<bool> eventSaved;
@@ -55,11 +53,19 @@ class detected_object {
   void estimate_direction();
 
   // Behavior Functions
-  void CheckBehavior(/*std::vector<cv::Rect> vRect*/);
+  void CheckBehavior();
   std::vector<int> DetectedBehaviors();
   std::vector<bool> IsFound();
+  /*Load list of descriptors to be used and create filter bank from them.
+  Input:
+    enable - bool; enables loading custom thresholds if set true.*/
+  void LoadBehaviorFilters(bool enable = false);
   /*Update object number in BehaviorFilter.*/
   void SetObjNumber();
+  /*Visualizes behavior states in frame*/
   void ShowBehaviorStates(cv::Mat frame);
+
+  private:
+  std::vector<std::string> LoadDescriptorsList();
 };
 }  // namespace bd

@@ -1,4 +1,5 @@
 #include "..\includes\detected_object.h"
+#include "..\includes\logger.h"
 
 namespace bd {
 
@@ -11,66 +12,8 @@ detected_object::detected_object(void) {
   outside_counter = 0;
   inside_counter = 0;
   is_inside_restricted_area = false;
-  // DataBase* db = new DataBase("150.254.2.23","root","admin","test");
-  // if(db->Connect())
-  //{
-  //	bFilter = db->DescriptorLoad(1);
-  //	db->Disconnect();
-  //}
-  // delete db;
   is_close_to = false;
-  bFilter.push_back(new BehaviorFilter("helpDescr13.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.2);
-  bFilter.push_back(new BehaviorFilter("helpDescr23.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.2);
-/*
-  bFilter.push_back(new BehaviorFilter("faintDescr0.dat"));
-  bFilter.push_back(new BehaviorFilter("faintDescr1.dat"));
-  bFilter.push_back(new BehaviorFilter("faintDescr2.dat"));
-  bFilter.push_back(new BehaviorFilter("faintDescr3.dat"));
-  bFilter.push_back(new BehaviorFilter("faintDescr4.dat"));
-  bFilter.push_back(new BehaviorFilter("faintDescr5.dat"));
-  bFilter.push_back(new BehaviorFilter("faintDescr6.dat"));
-  bFilter.push_back(new BehaviorFilter("faintDescr7.dat"));
-
-  bFilter.push_back(new BehaviorFilter("fallDescr0.dat"));
-  bFilter.push_back(new BehaviorFilter("fallDescr1.dat"));
-  bFilter.push_back(new BehaviorFilter("fallDescr2.dat"));
-  bFilter.push_back(new BehaviorFilter("fallDescr3.dat"));
-  bFilter.push_back(new BehaviorFilter("fallDescr4.dat"));
-  bFilter.push_back(new BehaviorFilter("fallDescr5.dat"));
-  bFilter.push_back(new BehaviorFilter("fallDescr6.dat"));
-  bFilter.push_back(new BehaviorFilter("fallDescr7.dat"));
-
-  bFilter.push_back(new BehaviorFilter("painDescr0.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.15);
-  bFilter.push_back(new BehaviorFilter("painDescr1.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.14);
-  bFilter.push_back(new BehaviorFilter("painDescr2.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.15);
-  bFilter.push_back(new BehaviorFilter("painDescr3.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.15);
-
-  bFilter.push_back(new BehaviorFilter("kneelDescr0.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.2);
-  bFilter.push_back(new BehaviorFilter("kneelDescr1.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.2);
-  bFilter.push_back(new BehaviorFilter("kneelDescr2.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.2);
-  bFilter.push_back(new BehaviorFilter("kneelDescr3.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.2);
-
-  bFilter.push_back(new BehaviorFilter("faintDescr2_art.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.25);
-  bFilter.push_back(new BehaviorFilter("faintDescr5.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.25);
-
-  bFilter.push_back(new BehaviorFilter("fightDescr1.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.1);
-  bFilter.push_back(new BehaviorFilter("fightDescr4.dat"));
-  bFilter[bFilter.size() - 1]->SetThreshold(0.1);*/
-
-  eventSaved.resize(bFilter.size());
+  LoadBehaviorFilters();
 }
 
 detected_object::detected_object(detected_object *obj) {
@@ -111,10 +54,7 @@ void detected_object::calc_speed(double x, double z, int timex) {
 
   double distance;
 
-  if (history_counter < history_time) { /*if(time.empty())
-                                            {
-                                                    time.push_back(timex);
-                                            }*/
+  if (history_counter < history_time) { 
     pos_x.push_back(x);
     pos_z.push_back(z);
     time.push_back(timex);
@@ -232,83 +172,39 @@ std::vector<bool> detected_object::IsFound() {
   return answer;
 }
 
+void detected_object::LoadBehaviorFilters(bool enable) {
+  auto descriptors = LoadDescriptorsList();
+  for (const auto &descr : descriptors) {
+    bFilter.push_back(new BehaviorFilter(descr));
+    double temp_threshold;
+    if (enable && load_data("parameters.txt", descr, temp_threshold))
+      bFilter.back()->SetThreshold(temp_threshold);
+  }
+
+  eventSaved.resize(bFilter.size());
+}
+
+std::vector<std::string> detected_object::LoadDescriptorsList() {
+  static bool first_load = true;
+  static std::vector<std::string> descr_list;
+  if (first_load) {
+    std::ifstream descr_list_file("descriptors_list.txt");
+    std::string temp;
+    if (!descr_list_file.is_open()) 
+      throw std::runtime_error("Missing 'descriptors_list.txt'.");
+    while (!descr_list_file.eof()) {
+      descr_list_file >> temp;
+      descr_list.push_back(temp);
+      std::string msg = "loading descriptor " + temp;
+      LOG("detected_object", msg, LogLevel::kSetup);
+    }
+    first_load = false;
+    descr_list_file.close();
+  }
+  return descr_list;
+}
+
 bool detected_object::detect_movement() {
-  // metoda bazujaca na bledach predykcji
-  // double mean_delta_x = 0;
-  // double mean_delta_y = 0;
-  // double counter = 0;
-  // int history = 50;
-  //
-  // if(KFilter->kalmanv.size() < history)
-  //{
-  //	for(int i = 1; i < KFilter->kalmanv.size(); i++)
-  //	{
-  //		mean_delta_x += (KFilter->kalmanv[i].x -
-  // KFilter->kalmanv[i-1].x); 		mean_delta_y += (KFilter->kalmanv[i].y -
-  // KFilter->kalmanv[i-1].y); 		counter++;
-  //	}
-  //}
-  // else
-  //{
-  //	for(int i = KFilter->kalmanv.size()-history; i <
-  // KFilter->kalmanv.size(); i++)
-  //	{
-  //		mean_delta_x += (KFilter->kalmanv[i].x -
-  // KFilter->kalmanv[i-1].x); 		mean_delta_y += (KFilter->kalmanv[i].y -
-  // KFilter->kalmanv[i-1].y); 		counter++;
-  //	}
-  //}
-
-  // mean_delta_x = mean_delta_x/counter;
-  // mean_delta_y = mean_delta_y/counter;
-  // return cvPoint(KFilter->posv[KFilter->posv.size()-1].x + mean_delta_x,
-  // KFilter->posv[KFilter->posv.size()-1].y + mean_delta_y);
-
-  ////exponential smoothing
-  // double alpha = 0.2; //smoothing factor
-  // double state1_x = KFilter->posv[0].x;
-  // double state1_y = KFilter->posv[0].y;
-
-  //
-  // for(int i = 1; i < KFilter->posv.size(); i++)
-  //{
-  //	state1_x = alpha * KFilter->posv[i].x + (1-alpha)*state1_x;
-  //	state1_y = alpha * KFilter->posv[i].y + (1-alpha)*state1_y;
-  //}
-
-  // return cvPoint(state1_x,state1_y);
-
-  // metoda bazujaca na wektorach
-  // int history = 50;
-  // double counter = 0;
-  // double mean_delta_x = 0;
-  // double mean_delta_y = 0;
-  // if(KFilter->kalmanv.size() < history)
-  //{
-  //	for(int i = 1; i < KFilter->kalmanv.size(); i++)
-  //	{
-  //		mean_delta_x += (KFilter->kalmanv[0].x - KFilter->kalmanv[i].x);
-  //		mean_delta_y += (KFilter->kalmanv[0].y - KFilter->kalmanv[i].y);
-  //		counter++;
-  //	}
-  //}
-  // else
-  //{
-  //	for(int i = KFilter->kalmanv.size()-history+1; i <
-  // KFilter->kalmanv.size(); i++)
-  //	{
-  //		counter++;
-  //	/*	mean_delta_x +=
-  //		mean_delta_y += */
-  //
-  //	}
-  //}
-
-  // mean_delta_x = mean_delta_x/counter;
-  // mean_delta_y = mean_delta_y/counter;
-  // return cvPoint(KFilter->posv[KFilter->posv.size()-1].x + mean_delta_x,
-  // KFilter->posv[KFilter->posv.size()-1].y + mean_delta_y);
-
   size_t movement_history = 25;
   if (KFilter->kalmanv.size() > movement_history) {
     for (size_t i = KFilter->kalmanv.size() - movement_history;
