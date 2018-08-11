@@ -10,7 +10,7 @@ int BF_LOG(const std::string& msg, const LogLevel level, bool new_line = true) {
 
 BehaviorFilter::BehaviorFilter(void) {}
 
-BehaviorFilter::BehaviorFilter(char* path) {
+BehaviorFilter::BehaviorFilter(const std::string &path) {
   method.resize(11, 0);
   if (!load_data("parameters.txt", "lPkt", lPkt)) lPkt = 10;
   BF_LOG("lPkt=" + std::to_string(lPkt), LogLevel::kMega);
@@ -151,7 +151,7 @@ BehaviorFilter::BehaviorFilter(char* path) {
   delete[] buffer;
 }
 
-BehaviorFilter::BehaviorFilter(char* path, int gs) {
+BehaviorFilter::BehaviorFilter(const std::string &path, int gs) {
   // Reading descriptor from file
   std::ifstream input;
   input.open(path, std::ios_base::binary);
@@ -277,11 +277,8 @@ void BehaviorFilter::Check(std::vector<PointNorm> input, bool isMoving) {
   if (currentState == NULL) currentState = firstState;
   // Jesli przeszlismy wlasnie do ostatniego to juz to wykrywamy
   if (currentState->lastState) {
-    char* temp_oNum = new char[100];
-    sprintf(temp_oNum, ", objNum: %d.", this->objNumber);
-    this->behaviorDescription.append(temp_oNum);
+    this->behaviorDescription.append(", objNum: " + std::to_string(objNumber));
     BF_LOG(this->behaviorDescription, LogLevel::kDefault);
-    delete[] temp_oNum;
   }
 
   if (found || currentState->lastState) {

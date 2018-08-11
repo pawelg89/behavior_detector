@@ -26,8 +26,8 @@ class BehaviorFilter {
   int objNumber;
 
   BehaviorFilter(void);
-  BehaviorFilter(char *path);
-  BehaviorFilter(char *path, int gs);
+  BehaviorFilter(const std::string &path);
+  BehaviorFilter(const std::string &path, int gs);
   ~BehaviorFilter(void);
 
   /*Default function to check behavior on current filter.*/
