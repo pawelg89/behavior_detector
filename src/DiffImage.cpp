@@ -65,137 +65,6 @@ inline double GetDist(Point2f p1, Point2f p2) {
 
 DiffImage::~DiffImage(void) {}
 
-void DiffImage::DiffImageAction() {
-  DI_LOG(file_name, LogLevel::kSetup);
-  int frameCounter = 0;
-  CvFont font;
-  cvInitFont(&font, CV_FONT_VECTOR0, 0.5, 0.5, 0, 1);
-
-  int mode;
-  if (!load_data("parameters.txt", "mode", mode)) mode = 5;
-
-  std::cout << "Chosen moode: " << mode << std::endl;
-  std::string temp_msg = "Chosen mode: ";
-  temp_msg += std::to_string(mode);
-  DI_LOG(temp_msg, LogLevel::kSetup);
-
-  long double mean_time = 0;
-  int tick_count = 0;
-  long double ms;
-  unsigned __int64 freq, start, stop;
-  QueryPerformanceFrequency(reinterpret_cast<LARGE_INTEGER *>(&freq));
-
-  int scale = 1;
-  int current_threshold = 135;
-  int nbr_dot = 0;
-  long double dot_time = 0;
-
-  if (mode != 7) {
-    cvNamedWindow("Original Video", 0);
-    // cvMoveWindow("Original Video",-1280,176);
-    // cvResizeWindow("Original Video",1260,980);
-  } else {
-    namedWindow("Create Descriptor Window", CV_WINDOW_NORMAL);
-    // moveWindow("Create Descriptor Window",0,-1024);
-  }
-
-  CvCapture *video = cvCaptureFromAVI(file_name.c_str());
-
-  // IplImage* frame;
-  Mat mat_frame;
-  // cap.read(mat_frame);
-  // frame = new IplImage(mat_frame);
-
-  IplImage *frame = cvQueryFrame(video);
-  if (frame == NULL || frame->nSize < 0) {
-    throw(string) "DiffImage: Couldn't open video file. Check path: " +
-        file_name;
-  }
-  // Inicjalizacja odejmowania tla, zmienne potrzebne do MOG2
-  float mogThreshold;
-  if (!load_data("parameters.txt", "mogThreshold", mogThreshold))
-    mogThreshold = 50.0;
-
-  BackgroundSubtractorMOG2 *bg =
-      new BackgroundSubtractorMOG2(10000, mogThreshold, true);
-  //	bg->fTau = 0.1;
-  // if(!load_data("parameters.txt","backgroundRatio",bg->backgroundRatio))
-  //	DI_LOG("Couldnt find parameter <backgroundRatio>.",1);
-  Mat fore;
-
-  Convex *convex = new Convex();
-  int x_size, y_size;
-  char _char;
-  int waitTime = 1;
-
-  DI_LOG("Entering main loop.", LogLevel::kDefault);
-  do {
-    QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&start));
-
-    x_size = frame->width;
-    y_size = frame->height;
-
-    bg->operator()((Mat)frame, fore);
-
-    threshold(fore, fore, current_threshold, 255, CV_THRESH_BINARY);
-
-    /*char nameBuffer[100];
-    sprintf(nameBuffer,"rameczki/%d.bmp",frameCounter);
-    cvSaveImage(nameBuffer,frame);*/
-
-    if (convex->is_background_ok(frame->width, frame->height) && _char != 'r' &&
-        _char != 'R' /*&&
-			frameCounter!= 1421 && frameCounter!= 2270 && frameCounter!= 2990 && frameCounter!= 3810 && frameCounter!= 4490 && frameCounter!= 5150 && frameCounter!= 5960 && 
-			frameCounter!= 6790 && frameCounter!= 7430 && frameCounter!= 8150 && frameCounter!= 8950 && frameCounter!= 9700 && frameCounter!= 10560 && frameCounter!= 11400 &&
-			frameCounter!= 12020*/) {
-      if (mode == 5) convex->SHIELD((Mat)frame, fore, 0);
-
-      cvPutText(frame, std::to_string(frameCounter).c_str(), cvPoint(10, 10),
-                &font, cvScalar(0, 0, 255));
-      frameCounter++;
-
-      if (mode == 7) convex->SHIELD((Mat)frame, fore, true);
-    }
-    // else
-    //{
-    // cvPutText(frame,itoa(frameCounter,bufferChar,10) ,
-    // cvPoint(10,10),&font,cvScalar(0,0,255)); frameCounter++; delete
-    // bg;//>~BackgroundSubtractorMOG2(); bg = new
-    // BackgroundSubtractorMOG2(10000, mogThreshold,true); cout<<"Background
-    // reset"<<endl;
-    //}
-
-    // cvPutText(frame,itoa(frameCounter,bufferChar,10) ,
-    // cvPoint(10,10),&font,cvScalar(0,0,255));  frameCounter++;
-
-    if (frame->roi) cvResetImageROI(frame);
-
-    QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&stop));
-    ms = (static_cast<long double>(stop) - start) / freq * 1000;
-    if (mode != 7) cvShowImage("Original Video", frame);
-    std::cout << ms << endl;
-
-    char nameBuffer[100];
-    sprintf(nameBuffer, "rameczki/%d.bmp", frameCounter);
-    // cvSaveImage(nameBuffer,frame);
-
-    if (mode != 7) _char = cvWaitKey(waitTime);
-    if (_char == 'r' || _char == 'R') convex->detected_objects.clear();
-    if (_char == 'n' || _char == 'N') cvSaveImage(nameBuffer, frame);
-    if (_char == 'p')
-      if (waitTime == 1)
-        waitTime = 0;
-      else
-        waitTime = 1;
-
-    frame = cvQueryFrame(video);
-  } while (_char != 'q' && frame);
-
-  DI_LOG("Leaving main loop. Calling destructors...", LogLevel::kDefault);
-  cvReleaseCapture(&video);
-  cvDestroyAllWindows();
-}
-
 void load_marker_coord(vector<vector<Point2f>> &marker_coord,
                        int camera_number) {
   ifstream file2;
@@ -234,11 +103,7 @@ void DiffImage::DiffImageAction2() {
   int mode;
   if (!load_data("parameters.txt", "mode", mode)) mode = 5;
   std::cout << "Chosen moode: " << mode << std::endl;
-  char temp_msg[100] = {"Chosen mode: "};
-  std::string temp_mode = std::to_string(mode);
-  // char temp_mode[10];
-  // itoa(mode,temp_mode, 10);
-  strcat(temp_msg, temp_mode.c_str());
+  std::string temp_msg = "Chosen mode: " + std::to_string(mode);
   DI_LOG(temp_msg, LogLevel::kSetup);
 
   long double mean_time = 0;
@@ -252,7 +117,6 @@ void DiffImage::DiffImageAction2() {
   int nbr_dot = 0;
   long double dot_time = 0;
 
-  //---------------------------------------------------------------------------
   //------------------------- WCZYTYWANIE KAMER -------------------------------
   int nbrViews = 0;
   load_data("parameters.txt", "nbrViews", nbrViews);
@@ -293,8 +157,6 @@ void DiffImage::DiffImageAction2() {
     convex_vec.push_back(new Convex());
   }
   // bg->fTau = 0.000001;
-  Mat fore;
-  Mat frame;
 
   int x_size, y_size;
   MFrame = new marked_frame(640, 480);

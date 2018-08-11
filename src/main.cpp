@@ -35,22 +35,10 @@ void SingleRun(const std::string &input_file = kInputFilePath) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc > 1) {
-    std::ifstream file;
-    file.open(argv[1], std::ios_base::in);
-    if (!file.is_open()) {
-      std::cout << "Video file does not exist." << std::endl;
-      return 0;
-    }
-    file.close();
-    bd::DiffImage* dif = new bd::DiffImage(argv[1]);
-    dif->DiffImageAction();
-  } else {
-    int repetitions = 1;
-    bd::load_data("parameters.txt", "repetitions", repetitions);
-    for (size_t i = 0; i < repetitions; ++i) {
-      SingleRun();
-    }
+  int repetitions = 1;
+  bd::load_data("parameters.txt", "repetitions", repetitions);
+  for (size_t i = 0; i < repetitions; ++i) {
+    SingleRun();
   }
 
   // system("pause");
