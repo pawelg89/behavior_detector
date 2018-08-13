@@ -22,6 +22,10 @@ class GCapture {
   void AsyncQuery(cv::Mat &frame, cv::Mat &fore, int i);
   void SyncQuery(cv::Mat &frame, cv::Mat &fore, int i);
   bool IsLiveCamera(const std::string &path);
+  bool IsImageSequence(const std::string &path);
+  void InitializeVideo(const std::string &path, int i);
+  void InitializeImages(const std::string &path, int i);
+  std::string GetFramesPath(const std::string &path, int i);
 
   std::vector<std::string> pathDir_;
   std::vector<HANDLE> camThreads_;
