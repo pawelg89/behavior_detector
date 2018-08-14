@@ -13,6 +13,7 @@
 #include "..\includes\collector.h"
 #include "..\includes\detected_object.h"
 #include "..\includes\logger.h"
+#include "..\includes\signaler.h"
 #include "..\includes\timer.h"
 #include "..\includes\UpdateHull.h"
 
@@ -104,20 +105,35 @@ Convex::Convex(int frameWidth, int frameHeight, int camID)
   this->ClearVectors();
 }
 
-Convex::~Convex(void) {}
-
 static int GloCTR = 0;
+Convex::~Convex(void) {
+  delete GHelp;
+  ClearVectors();
+  detected_objects.clear();
+  Convex_LOG("Called: " + std::to_string(GloCTR), LogLevel::kSetup);
+}
 
+static int clears_counter = 0;
 void Convex::SHIELD(Mat frame, Mat fore, int view) {
   std::string message = "";
   bd::Timer timer(false);
   auto collector = &Collector::getInstance();
 
-  Convex_LOG("SHIELD(Mat frame, Mat fore, int view) called.", LogLevel::kMega);
+  Convex_LOG(
+      "SHIELD(Mat frame, Mat fore, int view) called " + std::to_string(GloCTR++),
+      LogLevel::kMega);
   message += timer.PrintElapsed("Convex_log");
   collector->AddData("Convexlog", timer.last_elapsed);
-  
-  GloCTR++;
+
+  if (Signaler::getInstance().CheckAndReset("reset_tracker")) {
+    detected_objects.clear();
+    Convex_LOG(
+        "detected_objects.clear(); call: " + std::to_string(++clears_counter),
+        LogLevel::kDefault);
+  }
+  message += timer.PrintElapsed("SignalNClear", false);
+  collector->AddData("SignalNClear", timer.last_elapsed);
+
   this->NCM(frame, fore);
   message += timer.PrintElapsed("NCM", false);
   collector->AddData("NCM", timer.last_elapsed);
@@ -232,7 +248,7 @@ void Convex::ClearVectors() {
   temp_rect.clear();
   behDescr.clear();
 
-  if (GloCTR == 8300 || GloCTR == 4500) detected_objects.clear();
+  //if (GloCTR == 8300 || GloCTR == 4500) detected_objects.clear();
 }
 
 void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {

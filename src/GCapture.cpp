@@ -8,6 +8,7 @@
 // Project includes
 #include "..\..\stdafx.h"
 #include "..\includes\logger.h"
+#include "..\includes\signaler.h"
 
 namespace bd {
 using namespace cv;
@@ -68,6 +69,7 @@ unsigned int __stdcall image_thread(void *arg) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
     cout << "fore_lists.size() < cameraNumber + 1" << endl;
   }
+  std::string next_image;
   while (!finish_requested && !fore_lists[cameraNumber].eof() &&
          !frame_lists[cameraNumber].eof()) {
     while (!TryEnterCriticalSection(&critical[cameraNumber])) {}
@@ -76,8 +78,8 @@ unsigned int __stdcall image_thread(void *arg) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       continue;
     }
-    std::string next_image;
     frame_lists[cameraNumber] >> next_image;
+    bd::Signaler::getInstance().SignalPathChange(next_image, "reset_tracker");
     buffer[cameraNumber] = cv::imread(next_image, CV_LOAD_IMAGE_COLOR);
     fore_lists[cameraNumber] >> next_image;
     fore_vec[cameraNumber] = cv::imread(next_image, CV_LOAD_IMAGE_GRAYSCALE);
@@ -233,10 +235,8 @@ GCapture::~GCapture(void) {
 }
 
 void GCapture::QueryFrame(Mat &frame, Mat &fore, int i) {
-  if (kAsynchronous)
-    AsyncQuery(frame, fore, i);
-  else
-    SyncQuery(frame, fore, i);
+  if (kAsynchronous) AsyncQuery(frame, fore, i);
+  else               SyncQuery(frame, fore, i);
 }
 
 void GCapture::AsyncQuery(Mat &frame, Mat &fore, int i) {
@@ -270,7 +270,7 @@ void GCapture::SyncQuery(cv::Mat &frame, cv::Mat &fore, int i) {
       if (--gc_frames_count[i] > 0) {
         std::string msg = "Camera[" + std::to_string(i);
         msg += "] dropped frames: " + std::to_string(gc_frames_count[i]);
-        LOG("GCapture", msg, LogLevel::kMega);
+        LOG("GCapture", msg, LogLevel::kWarning);
         gc_frames_count[i] = 0;
       }
     } else {
