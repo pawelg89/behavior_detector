@@ -182,7 +182,7 @@ void DiffImage::DiffImageAction2() {
       if (convex_vec[c]->is_background_ok(frame.cols, frame.rows)) {
         if (mode == 5) convex_vec[c]->SHIELD((Mat)frame, fore, c);
       } else {
-        std::cout << "!is_background_ok(frame.cols,frame.rows)" << std::endl;
+        DI_LOG("!is_background_ok(frame.cols,frame.rows)", LogLevel::kWarning);
       }
 
       TrackObjects3D(frame, convex_vec, marker_coord, c);
@@ -194,15 +194,14 @@ void DiffImage::DiffImageAction2() {
       _char = cvWaitKey(waitTime);
       if (_char == 's') {
         char nameBuffer[100];
-        sprintf(nameBuffer, "d:/ramkiTest/%d.bmp", frameCounter);
-        imwrite(nameBuffer, frame);
-        frameCounter++;
+        sprintf(nameBuffer, "processed_frames/%d.bmp", frameCounter);
+        imwrite(nameBuffer, frame);        
       }
-      if (_char == 'p')
-        if (waitTime == 1)
-          waitTime = 0;
-        else
-          waitTime = 1;
+      if (_char == 'p') {
+        if (waitTime == 1) waitTime = 0;
+        else               waitTime = 1;
+      }
+      frameCounter++;
     }
   } while (_char != 'q' && !frame.empty());
   if (_char == 'q') DI_LOG("Quit by user (<q> pressed).", LogLevel::kDefault);
@@ -213,10 +212,12 @@ void DiffImage::DiffImageAction2() {
   stoper.PrintElapsed("saving detections");
   Collector::getInstance().SaveData();
   stoper.PrintElapsed("saving collected data");
+  DI_LOG("Frames processed: " + std::to_string(frameCounter), LogLevel::kDefault);
   DI_LOG("Leaving main loop. Calling destructors...", LogLevel::kDefault);
   cv::destroyAllWindows();
 
   delete GardzinCapture;
+  for (auto convex : convex_vec) delete convex;
 }
 
 }  // namespace bd

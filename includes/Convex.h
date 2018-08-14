@@ -76,8 +76,6 @@ class Convex {
 
   // vector with center points for each hull
   std::vector<cv::Point> centers;
-  // Automaton for behavior filtering
-  BehaviorFilter *BF;
 
   void ClearVectors();
 

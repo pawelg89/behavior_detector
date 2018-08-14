@@ -249,6 +249,7 @@ BehaviorFilter::~BehaviorFilter() {
     delete temp_StateHandles[i];
   }
   temp_StateHandles.clear();
+  method.clear();
 }
 
 // void BehaviorFilter::Check(vector<PointNorm> input) {
