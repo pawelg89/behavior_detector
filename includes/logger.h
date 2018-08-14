@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <mutex>
 #include <string>
 
 namespace bd {
@@ -78,6 +79,7 @@ class Logger {
   std::time_t rawtime_;
   struct tm *timeinfo_;
   std::string file_name_;
+  std::mutex log_mutex_;
 };
 
 }  // namespace bd

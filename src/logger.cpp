@@ -91,8 +91,11 @@ Logger::~Logger() { log_.close(); }
 
 int Logger::LOG(const std::string &name, const std::string &msg,
                 const LogLevel level, const bool new_line) {
+  std::lock_guard<std::mutex> guard(log_mutex_);
   if (level >= log_level_) {
     if (new_line) {
+      time(&rawtime_);
+      timeinfo_ = localtime(&rawtime_);
       log_ << "\n[" << std::setw(2) << std::setfill('0') << timeinfo_->tm_hour;
       log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_min;
       log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_sec;
