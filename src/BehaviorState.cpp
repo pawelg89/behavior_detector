@@ -3,10 +3,15 @@
 #include "..\includes\logger.h"
 
 namespace bd {
-int BS_LOG(const std::string& msg, const LogLevel level, bool new_line = true) {
+  namespace {
+int BS_LOG(const std::string &msg, const LogLevel level, bool new_line = true) {
   return LOG("BehaviorState", msg, level, new_line);
 }
-
+int BS_LogOnce(const std::string &msg, const LogLevel level,
+               bool new_line = true) {
+  return LogOnce("BehaviorState", msg, level, new_line);
+}
+}  // namespace
 //----------------- C O N S T R U C T O R S -----------------------------------
 BehaviorState::BehaviorState(double thresh, int method, int lPkt) {
   lastState = false;
@@ -17,6 +22,13 @@ BehaviorState::BehaviorState(double thresh, int method, int lPkt) {
   if (!load_data("parameters.txt", "faintCounter", faintCounter))
     faintCounter = 80;
   if (!load_data("parameters.txt", "statsON", statsON)) statsON = false;
+  std::string message = "faintCounter=" + std::to_string(faintCounter);
+  message += (statsON) ? ", statsON=true" : ", statsON=false";
+  message += ", method=" + std::to_string(method);
+  message += ", threshold=" + std::to_string(thresh);
+  message += ", BehaviorState(double, int, int)";
+  BS_LogOnce(message, LogLevel::kSetup);
+
   // switch(method)
   //{
   // case 0:
@@ -73,6 +85,12 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput, bool isLast,
       methodIdxStart = 1;
       methodIdxStop = 5;
   }
+  std::string message = "faintCounter=" + std::to_string(faintCounter);
+  message += (statsON) ? ", statsON=true" : ", statsON=false";
+  message += ", method=" + std::to_string(method);
+  message += ", threshold=" + std::to_string(thresh);
+  message += ", BehaviorState(vector<PointNorm>, bool, double, int, int)";
+  BS_LogOnce(message, LogLevel::kSetup);
 }
 
 BehaviorState::BehaviorState(std::vector<PointNorm> accInput,
@@ -109,6 +127,12 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput,
       methodIdxStart = 1;
       methodIdxStop = 5;
   }
+  std::string message = "faintCounter=" + std::to_string(faintCounter);
+  message += (statsON) ? ", statsON=true" : ", statsON=false";
+  message += ", method=" + std::to_string(method);
+  message += ", threshold=" + std::to_string(thresh);
+  message += ", BehaviorState(vector<PointNorm>, vector<BehaviorState*>, bool, double, int, int)";
+  BS_LogOnce(message, LogLevel::kSetup);
 }
 
 BehaviorState::BehaviorState(std::vector<PointNorm> accInput,
@@ -147,6 +171,13 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput,
       methodIdxStart = 1;
       methodIdxStop = 5;
   }
+  std::string message = "faintCounter=" + std::to_string(faintCounter);
+  message += (statsON) ? ", statsON=true" : ", statsON=false";
+  message += ", method=" + std::to_string(method);
+  message += ", threshold=" + std::to_string(thresh);
+  message += ", sttDescr=" + sttDescr;
+  message += ", BehaviorState(vector<PointNorm>, vector<BehaviorState*>, bool, string, double, int, int)";
+  BS_LogOnce(message, LogLevel::kSetup);
 }
 
 BehaviorState::~BehaviorState(void) {
@@ -268,9 +299,9 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
           chosenState = i;
           bestDistance = tempDistance;
         }
-      } else if (mistakes > 0)
+      } else if (mistakes > 0) {
         mistakes--;
-      else {
+      } else {
         accepted = false;
         break;
       }
@@ -278,17 +309,14 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
   }
   // If possible move to that state
   if (accepted) {
-    /*if (nextStates[chosenState]->sttNumber == 10) {
-      std::cout << std::endl;
-    }*/
     if (nextStates[chosenState]->lastState == true && behType == 3) {
-      if (!isMoving)  // Fainted people don't move... usually
-      {
+      if (!isMoving) {
         if (faintCounter <= 1) {
           idleCounter = 0;
           return this->nextStates[chosenState];
-        } else
+        } else {
           faintCounter--;
+        }
       }
     } else {
       idleCounter = 0;

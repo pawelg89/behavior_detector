@@ -54,8 +54,19 @@ enum class LogLevel {
 /*Conversion function LogLevel into std::string*/
 std::string ToString(const LogLevel level);
 
+/*Writes 'msg' to log file if 'level' if higher than reference level set in
+  config. Printed in new line if 'new_line=true'; new line starts with date and
+  'name' of a function that logs 'msg'.
+  Returns: <int> 0 if successful or <int> -1 if 'level' was too low to print.*/
 int LOG(const std::string &name, const std::string &msg, const LogLevel level,
         const bool new_line = true);
+
+/*Writes 'msg' only ONCE to log file if 'level' if higher than reference level
+  set in config. Printed in new line if 'new_line=true'; new line starts with
+  date and 'name' of a function that logs 'msg'. Returns: <int> 0 if successful
+  or <int> -1 if 'level' was too low to print or 'msg' has been printed already.*/
+int LogOnce(const std::string &name, const std::string &msg,
+            const LogLevel level, bool new_line = true);
 
 class Logger {
  public: // Singleton type

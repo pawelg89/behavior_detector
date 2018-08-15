@@ -4,48 +4,57 @@
 
 namespace bd {
 
-int BF_LOG(const std::string& msg, const LogLevel level, bool new_line = true) {
+namespace {
+int BF_LOG(const std::string &msg, const LogLevel level, bool new_line = true) {
   return LOG("BehaviorFilter", msg, level, new_line);
 }
+int BF_LogOnce(const std::string &msg, const LogLevel level, bool new_line = true) {
+  return LogOnce("BehaviorFilter", msg, level, new_line);
+}
+}  // namespace
 
 BehaviorFilter::BehaviorFilter(void) {}
 
 BehaviorFilter::BehaviorFilter(const std::string &path) {
   method.resize(11, 0);
   if (!load_data("parameters.txt", "lPkt", lPkt)) lPkt = 10;
-  BF_LOG("lPkt=" + std::to_string(lPkt), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_help", method[2])) method[2] = 0;
-  BF_LOG("method_help=" + std::to_string(method[2]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_faint", method[3])) method[3] = 0;
-  BF_LOG("method_faint=" + std::to_string(method[3]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_fight", method[4])) method[4] = 0;
-  BF_LOG("method_fight=" + std::to_string(method[4]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_fall", method[5])) method[5] = 0;
-  BF_LOG("method_fall=" + std::to_string(method[5]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_pain", method[6])) method[6] = 0;
-  BF_LOG("method_pain=" + std::to_string(method[6]), LogLevel::kMega);
   if (!load_data("parameters.txt", "method_kneel", method[7])) method[7] = 0;
-  BF_LOG("method_kneel=" + std::to_string(method[7]), LogLevel::kMega);
+  std::string message = "lPkt=" + std::to_string(lPkt);
+  message += ", method_help=" + std::to_string(method[2]);
+  message += ", method_faint=" + std::to_string(method[3]);
+  message += ", method_fight=" + std::to_string(method[4]);
+  message += ", method_fall=" + std::to_string(method[5]);
+  message += ", method_pain=" + std::to_string(method[6]);
+  message += ", method_kneel=" + std::to_string(method[7]);
 
   // Reading descriptor from file
   std::ifstream input;
   input.open(path, std::ios_base::binary);
   if (!input.is_open())
-    throw(
-        std::string) "Couldn't open descriptor file. Check descriptors path: " +
-        path;
+    throw(std::string) "Couldn't open descriptor file, path: " + path;
 
   int header[2];  // 0-liczba stanow glownych, 1-typ zachowania
   input.read((char*)header, sizeof(header));
   this->behaviorType = header[1];
+  message += ", behaviorType=" + std::to_string(behaviorType);
 
   // liczba punktow w stanach
   int* sizes = new int[header[0]];
   input.read((char*)sizes, sizeof(int) * header[0]);
+  message += ", stateSizes={" + std::to_string(sizes[0]);
+  for (size_t i = 1; i < header[0]; ++i)
+    message += "," + std::to_string(sizes[i]);
+  message += "}";
 
   // Progi akceptacji wektora z punktami deskryptora
   double* thresholds = new double[header[0]];
   input.read((char*)thresholds, sizeof(double) * header[0]);
+  message += ", threshold=" + std::to_string(thresholds[0]);
 
   // Mapa polaczen miedzy stanami
   int statesNumber = header[0] + 1;
@@ -138,6 +147,8 @@ BehaviorFilter::BehaviorFilter(const std::string &path) {
     default:
       this->behaviorDescription = "Nieznany typ zachowania";
   }
+  message = "description=" + behaviorDescription + ", " + message;
+  BF_LogOnce(message, LogLevel::kSetup);
 
   firstState = temp_StateHandles[0];
   currentState = firstState;

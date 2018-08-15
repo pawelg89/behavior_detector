@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <iostream>
 #include <strstream>
+#include <vector>
 
 namespace bd {
 
@@ -66,6 +67,16 @@ LogLevel ToLogLevel(const std::string &level) {
 int LOG(const std::string &name, const std::string &msg, const LogLevel level,
         const bool new_line) {
   return Logger::getInstance().LOG(name, msg, level, new_line);
+}
+
+int LogOnce(const std::string &name, const std::string &msg,
+            const LogLevel level, bool new_line) {
+  static std::vector<std::string> printed_msgs;
+  for (const auto &msg_ : printed_msgs)
+    if (msg_ == msg) return -1;
+  auto is_printed = Logger::getInstance().LOG(name, msg, level, new_line);
+  printed_msgs.emplace_back(std::move(msg));
+  return is_printed;
 }
 //-------------------------- SINGLETON LOGGER ---------------------------------
 
