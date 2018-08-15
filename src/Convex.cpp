@@ -129,7 +129,7 @@ void Convex::SHIELD(Mat frame, Mat fore, int view) {
     detected_objects.clear();
     Convex_LOG(
         "detected_objects.clear(); call: " + std::to_string(++clears_counter),
-        LogLevel::kDefault);
+        LogLevel::kKilo);
   }
   message += timer.PrintElapsed("SignalNClear", false);
   collector->AddData("SignalNClear", timer.last_elapsed);

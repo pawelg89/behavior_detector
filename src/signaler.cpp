@@ -23,7 +23,7 @@ void Signaler::SignalPathChange(const std::string &path,
   std::lock_guard<std::mutex> guard(signals_mutex_);
   signals_[sig_name] = (prev_path_ != comp_substr);
   if (prev_path_ != comp_substr) 
-    LOG("Signaler", comp_substr, LogLevel::kDetailed);
+    LOG("Signaler", comp_substr, LogLevel::kKilo);
   
   prev_path_ = comp_substr;
 }
