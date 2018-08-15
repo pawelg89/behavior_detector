@@ -162,6 +162,7 @@ void DiffImage::DiffImageAction2() {
   MFrame = new marked_frame(640, 480);
   char _char;
   int waitTime = 1;
+  load_data("parameters.txt", "waitTime", waitTime);
   DI_LOG("Entering main loop.", LogLevel::kDefault);
   Timer stoper;
   do {
