@@ -56,12 +56,13 @@ class Convex {
   const double AREA_TRESH;
   const double AH_TRESH;
   const double SALIENCE_TRESH;
-  int global_counter;
-  int waitTime;
+  int global_counter_;
+  int wait_time_;
 
-  int method;
-  int method0, method1, method2, method3;
-  int lPkt;
+  int method_;
+  int method0_, method1_, method2_, method3_;
+  int l_pkt_;
+  int clears_counter_;
 
   // Klasa pomocnicza przeliczajaca wspolrzedne
   Helper *GHelp;

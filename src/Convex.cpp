@@ -49,59 +49,67 @@ int Convex_LOG(std::string msg, LogLevel level, bool new_line = true) {
 }
 
 Convex::Convex(void)
-    : A(5.0), AH_TRESH(10.0), AREA_TRESH(0.01), SALIENCE_TRESH(1.3) {
+    : A(5.0),
+      AH_TRESH(10.0),
+      AREA_TRESH(0.01),
+      SALIENCE_TRESH(1.3),
+      global_counter_(0),
+      wait_time_(1),
+      clears_counter_(0) {
   char tmp_buff[100] = "";
   morph_size = 2;
 
   ostrstream zapis(tmp_buff, (int)sizeof(tmp_buff), ios::app);
-  if (!load_data("parameters.txt", "method", method)) method = 0;
+  if (!load_data("parameters.txt", "method", method_)) method_ = 0;
   zapis.seekp(0);
-  zapis << "chosen method: " << method;
+  zapis << "chosen method: " << method_;
   Convex_LOG(tmp_buff, LogLevel::kSetup);
 
-  if (!load_data("parameters.txt", "lPkt", lPkt)) lPkt = 10;
+  if (!load_data("parameters.txt", "lPkt", l_pkt_)) l_pkt_ = 10;
   zapis.seekp(0);
-  zapis << "Number of points: " << lPkt;
+  zapis << "Number of points: " << l_pkt_;
   Convex_LOG(tmp_buff, LogLevel::kSetup);
 
-  if (!load_data("parameters.txt", "method0", method0)) method0 = 1;
-  if (!load_data("parameters.txt", "method1", method1)) method1 = 1;
-  if (!load_data("parameters.txt", "method2", method2)) method2 = 1;
-  if (!load_data("parameters.txt", "method3", method3)) method3 = 1;
+  if (!load_data("parameters.txt", "method0", method0_)) method0_ = 1;
+  if (!load_data("parameters.txt", "method1", method1_)) method1_ = 1;
+  if (!load_data("parameters.txt", "method2", method2_)) method2_ = 1;
+  if (!load_data("parameters.txt", "method3", method3_)) method3_ = 1;
   // Ustawienia dla sekwencji Parking_1
   GHelp = new Helper(0.00523, 0.00294, 0.0045, 5.91, 16.1, 1440, 1080);
 
   BD = new BehaviorDescription();
-  global_counter = 0;
-  waitTime = 1;
   this->ClearVectors();
 }
 
 Convex::Convex(int frameWidth, int frameHeight, int camID)
-    : A(5.0), AH_TRESH(10.0), AREA_TRESH(0.01), SALIENCE_TRESH(1.3) {
+    : A(5.0),
+      AH_TRESH(10.0),
+      AREA_TRESH(0.01),
+      SALIENCE_TRESH(1.3),
+      global_counter_(0), 
+      wait_time_(1),
+      clears_counter_(0) {
   char tmp_buff[100] = "";
   morph_size = 2;
 
   ostrstream zapis(tmp_buff, (int)sizeof(tmp_buff), ios::app);
-  if (!load_data("parameters.txt", "method", method)) method = 0;
+  if (!load_data("parameters.txt", "method", method_)) method_ = 0;
   zapis.seekp(0);
-  zapis << "chosen method: " << method;
+  zapis << "chosen method: " << method_;
   Convex_LOG(tmp_buff, LogLevel::kSetup);
 
-  if (!load_data("parameters.txt", "lPkt", lPkt)) lPkt = 10;
+  if (!load_data("parameters.txt", "lPkt", l_pkt_)) l_pkt_ = 10;
   zapis.seekp(0);
-  zapis << "Number of points: " << lPkt;
+  zapis << "Number of points: " << l_pkt_;
   Convex_LOG(tmp_buff, LogLevel::kSetup);
 
-  if (!load_data("parameters.txt", "method0", method0)) method0 = 1;
-  if (!load_data("parameters.txt", "method1", method1)) method1 = 1;
-  if (!load_data("parameters.txt", "method2", method2)) method2 = 1;
-  if (!load_data("parameters.txt", "method3", method3)) method3 = 1;
+  if (!load_data("parameters.txt", "method0", method0_)) method0_ = 1;
+  if (!load_data("parameters.txt", "method1", method1_)) method1_ = 1;
+  if (!load_data("parameters.txt", "method2", method2_)) method2_ = 1;
+  if (!load_data("parameters.txt", "method3", method3_)) method3_ = 1;
 
   GHelp = new Helper(0.00523, 0.00294, 0.0045, 5.91, 16.1, 1440, 1080);
 
-  global_counter = 0;
-  waitTime = 1;
   this->ClearVectors();
 }
 
@@ -113,7 +121,6 @@ Convex::~Convex(void) {
   Convex_LOG("Called: " + std::to_string(GloCTR), LogLevel::kSetup);
 }
 
-static int clears_counter = 0;
 void Convex::SHIELD(Mat frame, Mat fore, int view) {
   std::string message = "";
   bd::Timer timer(false);
@@ -128,7 +135,7 @@ void Convex::SHIELD(Mat frame, Mat fore, int view) {
   if (Signaler::getInstance().CheckAndReset("reset_tracker")) {
     detected_objects.clear();
     Convex_LOG(
-        "detected_objects.clear(); call: " + std::to_string(++clears_counter),
+        "detected_objects.clear(); call: " + std::to_string(++clears_counter_),
         LogLevel::kKilo);
   }
   message += timer.PrintElapsed("SignalNClear", false);
@@ -162,6 +169,12 @@ void Convex::SHIELD(Mat frame, Mat fore, int view) {
 
 void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
   GloCTR++;
+  if (Signaler::getInstance().CheckAndReset("reset_tracker")) {
+  detected_objects.clear();
+  Convex_LOG(
+      "detected_objects.clear(); call: " + std::to_string(++clears_counter_),
+      LogLevel::kKilo);
+  }
   // Wyznaczenie hulli, oraz punktow do deskryptora dla kazdego obiektu
   this->NCM(frame, fore);
 
@@ -172,13 +185,13 @@ void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
   ClearPoint2(pt2);
 
   imshow("Create Descriptor Window", frame);
-  char _char = cvWaitKey(this->waitTime);
+  char _char = cvWaitKey(this->wait_time_);
 
   if (_char == 'p' || _char == 'P') {
-    if (waitTime == 1)
-      waitTime = 0;
+    if (wait_time_ == 1)
+      wait_time_ = 0;
     else
-      waitTime = 1;
+      wait_time_ = 1;
   }
   // if(GloCTR == 2631 || GloCTR == 2633 || GloCTR == 2636 || GloCTR == 2641 ||
   // GloCTR == 2643 || GloCTR == 2646 || GloCTR == 2663 || GloCTR == 2664 ||
@@ -492,7 +505,7 @@ double Rest(double x, double y) {
 }
 
 void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
-  if (method0) {
+  if (method0_) {
     // Wektor z punktami charakterystycznymi potrzebny do wykrywania zachowañ,
     // wersja normalizowana przez wysokosc i szerokosc
     vector<vector<PointNorm>> points_picture;
@@ -557,7 +570,7 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
                          points_picture[i].end());
     }
   }
-  if (method1) {
+  if (method1_) {
     // Wektor z punktami charakterystycznymi potrzebny do wykrywania zachowañ,
     // wersja normalizowana przez wysokosc
     vector<vector<PointNorm>> points_picture;
@@ -631,7 +644,7 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
     }
   }
 
-  if (method2) {
+  if (method2_) {
     // N punktów konturu wybieranych równomiernie
 
     vector<vector<PointNorm>> points_picture;
@@ -640,12 +653,12 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
     for (int i = 0; i < (int)contours.size(); i++) {
       int lPktKonturu = (int)contours[i].size();
       // Na wypadek zbyt du¿ej iloœci punktów
-      if (lPkt > lPktKonturu) break;
+      if (l_pkt_ > lPktKonturu) break;
 
-      int step = lPktKonturu / lPkt;
+      int step = lPktKonturu / l_pkt_;
       double buffer = 0;  // Rest((double)lPktKonturu,(double)lPkt);
       int stepCTR = 0;
-      for (int j = 0; j < lPktKonturu && stepCTR < lPkt;
+      for (int j = 0; j < lPktKonturu && stepCTR < l_pkt_;
            j += (step + (int)buffer)) {
         PointNorm tempP;
         tempP.x = (double)((contours[i][j].x - centers[i].x) /
@@ -656,10 +669,10 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
         points_picture[i].push_back(tempP);
 
         if (buffer < 1.0) {
-          buffer += Rest((double)lPktKonturu, (double)lPkt);
+          buffer += Rest((double)lPktKonturu, (double)l_pkt_);
         } else {
           buffer -= 1.0;
-          buffer += Rest((double)lPktKonturu, (double)lPkt);
+          buffer += Rest((double)lPktKonturu, (double)l_pkt_);
         }
       }
     }
@@ -670,7 +683,7 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
                          points_picture[i].end());
     }
   }
-  if (method3) {  // Wersja do sprawdzenia, czy dobrze jest obslugiwana
+  if (method3_) {  // Wersja do sprawdzenia, czy dobrze jest obslugiwana
                   // wypuklosc ktora moze wyst¹piæ pomiêdzy koñcem i pocz¹tkiem
                   // ( zawiniêcie siê numeracji punktow w wektorze )
     vector<vector<PointNorm>> points_picture;

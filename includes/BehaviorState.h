@@ -8,8 +8,6 @@
 // Project includes
 #include "StructuresSM.h"
 
-extern int method;
-
 namespace bd {
 
 class BehaviorState {
