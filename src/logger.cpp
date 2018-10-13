@@ -110,7 +110,9 @@ int Logger::LOG(const std::string &name, const std::string &msg,
       log_ << "\n[" << std::setw(2) << std::setfill('0') << timeinfo_->tm_hour;
       log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_min;
       log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_sec;
-      log_ << "] " << name << ": " << msg << std::flush;
+      log_ << "] " << std::setw(8) << std::setfill(' ') << ToString(level);
+      log_ << " : " << std::setw(20) << std::setfill(' ') << name;
+      log_ << " : " << msg << std::flush;
     } else {
       log_ << msg << std::flush;
     }
