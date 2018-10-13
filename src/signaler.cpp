@@ -18,8 +18,10 @@ void Signaler::SignalPathChange(const std::string &path,
   if (path.size() < 8)
     throw std::runtime_error("Signaler::SignalPathChange too short path given.");
   auto comp_substr = path.substr(0, path.find_last_of('/'));
-  while (Check(sig_name))
+  while (Check(sig_name)) {
+    LOG("Signaler", "waiting for flag reset", LogLevel::kMega);
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
   std::lock_guard<std::mutex> guard(signals_mutex_);
   signals_[sig_name] = (prev_path_ != comp_substr);
   if (prev_path_ != comp_substr) 

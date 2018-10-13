@@ -72,12 +72,22 @@ unsigned int __stdcall image_thread(void *arg) {
   std::string next_image;
   while (!finish_requested && !fore_lists[cameraNumber].eof() &&
          !frame_lists[cameraNumber].eof()) {
-    while (!TryEnterCriticalSection(&critical[cameraNumber])) {}
+    size_t wait_counter = 0;
+    while (!TryEnterCriticalSection(&critical[cameraNumber])) {
+      ++wait_counter;
+    }
     if (!kAsynchronous && gc_frames_count[cameraNumber] > 0) {
       LeaveCriticalSection(&critical[cameraNumber]);
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       continue;
     }
+    if(wait_counter > 0) {
+      std::string msg =
+          "TryEnterCriticalSection calls=" + std::to_string(wait_counter) +
+          " cam=" + std::to_string(cameraNumber);
+      LOG("image_thread", msg, LogLevel::kMega);
+    }
+    
     frame_lists[cameraNumber] >> next_image;
     bd::Signaler::getInstance().SignalPathChange(next_image, "reset_tracker");
     buffer[cameraNumber] = cv::imread(next_image, CV_LOAD_IMAGE_COLOR);
@@ -90,7 +100,8 @@ unsigned int __stdcall image_thread(void *arg) {
     LeaveCriticalSection(&critical[cameraNumber]);
   }
 
-  std::cout << "image_thread[" << cameraNumber << "] finished" << std::endl;
+  LOG("image_thread", "camera[" + std::to_string(cameraNumber) + "] finished",
+      LogLevel::kSetup);
   return 0;
 }
 //---------------------------------------------------------------------------
@@ -262,6 +273,8 @@ void GCapture::SyncQuery(cv::Mat &frame, cv::Mat &fore, int i) {
   unsigned short skips = 10;
   while (!finished) {
     while (!TryEnterCriticalSection(&critical[i])) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      LOG("SyncQuery", "->TryEnterCriticalSection", LogLevel::kMega);
     }
     if (!buffer[i].empty() && gc_frames_count[i] > 0) {
       finished = true;
@@ -270,17 +283,18 @@ void GCapture::SyncQuery(cv::Mat &frame, cv::Mat &fore, int i) {
       if (--gc_frames_count[i] > 0) {
         std::string msg = "Camera[" + std::to_string(i);
         msg += "] dropped frames: " + std::to_string(gc_frames_count[i]);
-        LOG("GCapture", msg, LogLevel::kWarning);
+        LOG("SyncQuery", msg, LogLevel::kWarning);
         gc_frames_count[i] = 0;
       }
     } else {
-      if (--skips > 0) {
+      if (skips-- > 0) {
         LeaveCriticalSection(&critical[i]);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         continue;
       }
       finished = true;
       frame = Mat{};
+      LOG("SyncQuery", "FINISHED!!!", LogLevel::kWarning);
     }
   }  // while(!finished)
   LeaveCriticalSection(&critical[i]);
