@@ -21,21 +21,21 @@ list = struct([]);
 idx = 1;
 
 if lvl == 1
-    f = waitbar(0.0, LastNChars(strrep(path, '\', '\\'), 40),...
+    f = waitbar(0.0, LastNChars(strrep(path, '\', '/'), 40),...
         'Name', 'Listing files...');
 end
 for i = 1 : length(simple_dir)
     elem = simple_dir(i).path;
     if (size(strfind(elem, extension)) ~= 0)
-        file_list(idx).path = strrep(strcat(path, '\', elem), '\', '/');
+        file_list(idx).path = strrep(strcat(path, '/', elem), '\', '/');
         idx = idx + 1;
     end
     if (size(strfind(elem, '.')) == 0)
-        temp = ListFilesOfType(strcat(path, '\', elem), extension, lvl + 1);
+        temp = ListFilesOfType(strcat(path, '/', elem), extension, lvl + 1);
         list = [list, temp];
     end
     if lvl == 1
-        msg = strcat('...',LastNChars(path, 30), '\', elem);
+        msg = strcat('...',LastNChars(path, 30), '/', elem);
         msg = strrep(msg, '\', '/');
         msg = strrep(msg, '_', '\_');
         waitbar(i/length(simple_dir), f, msg);
