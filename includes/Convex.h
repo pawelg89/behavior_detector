@@ -64,6 +64,8 @@ class Convex {
   int l_pkt_;
   int clears_counter_;
 
+  char key_;
+
   // Klasa pomocnicza przeliczajaca wspolrzedne
   Helper *GHelp;
   
@@ -91,6 +93,15 @@ class Convex {
   double GetAlfa(cv::Point p1, cv::Point prePt);
 
   double GetTheta(double x, double y, double alfa);
+  
+  /*Captures mouse clicks when manually choosing silhouettes for descriptors*/
+  void HandleMouseCallbacks(Mat frame);
+
+  void SelectContour(Mat frame);
+
+  void SaveContourROI(Mat frame, int idx);
+
+  void SaveDescriptor();
 
   /*Function to save image containing new detected behavior.*/
   void SaveDetectedBehaviors(detected_object *obj, cv::Mat frame) const;

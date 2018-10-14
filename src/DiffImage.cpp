@@ -182,6 +182,7 @@ void DiffImage::DiffImageAction2() {
 
       if (convex_vec[c]->is_background_ok(frame.cols, frame.rows)) {
         if (mode == 5) convex_vec[c]->SHIELD((Mat)frame, fore, c);
+        if (mode == 7) convex_vec[c]->SHIELD((Mat)frame, fore, true);
       } else {
         DI_LOG("!is_background_ok(frame.cols,frame.rows)", LogLevel::kWarning);
       }

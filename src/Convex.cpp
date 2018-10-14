@@ -10,12 +10,12 @@
 // Project includes
 #include "..\..\stdafx.h"
 #include "..\includes\BehaviorFilter.h"
+#include "..\includes\UpdateHull.h"
 #include "..\includes\collector.h"
 #include "..\includes\detected_object.h"
 #include "..\includes\logger.h"
 #include "..\includes\signaler.h"
 #include "..\includes\timer.h"
-#include "..\includes\UpdateHull.h"
 
 static int FrameCounter = 0;
 //=============================================================================
@@ -33,10 +33,13 @@ void MouseEvent2(int ev, int x, int y, int flags, void *param) {
       break;
   }
 }
-void ClearPoint2(CvPoint *p)  // zerowanie wybranego punktu
-{
+void ClearPoint2(CvPoint *p) {
   p->x = -1;
   p->y = -1;
+}
+void SetPoint(int x, int y) {
+  pt2->x = x;
+  pt2->y = y;
 }
 
 namespace bd {
@@ -86,7 +89,7 @@ Convex::Convex(int frameWidth, int frameHeight, int camID)
       AH_TRESH(10.0),
       AREA_TRESH(0.01),
       SALIENCE_TRESH(1.3),
-      global_counter_(0), 
+      global_counter_(0),
       wait_time_(1),
       clears_counter_(0) {
   char tmp_buff[100] = "";
@@ -126,9 +129,9 @@ void Convex::SHIELD(Mat frame, Mat fore, int view) {
   bd::Timer timer(false);
   auto collector = &Collector::getInstance();
 
-  Convex_LOG(
-      "SHIELD(Mat frame, Mat fore, int view) called " + std::to_string(GloCTR++),
-      LogLevel::kMega);
+  Convex_LOG("SHIELD(Mat frame, Mat fore, int view) called " +
+                 std::to_string(GloCTR++),
+             LogLevel::kMega);
   message += timer.PrintElapsed("Convex_log");
   collector->AddData("Convexlog", timer.last_elapsed);
 
@@ -167,43 +170,51 @@ void Convex::SHIELD(Mat frame, Mat fore, int view) {
   collector->AddData("ConvexShield", elapsed);
 }
 
-void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
-  GloCTR++;
-  if (Signaler::getInstance().CheckAndReset("reset_tracker")) {
-  detected_objects.clear();
-  Convex_LOG(
-      "detected_objects.clear(); call: " + std::to_string(++clears_counter_),
-      LogLevel::kKilo);
-  }
-  // Wyznaczenie hulli, oraz punktow do deskryptora dla kazdego obiektu
-  this->NCM(frame, fore);
-
-  setMouseCallback("Create Descriptor Window", MouseEvent2);
-
+void Convex::HandleMouseCallbacks(Mat frame) {
   // Obsluga dodawania punktow do deskryptora
+  setMouseCallback("Create Descriptor Window", MouseEvent2);
   pt2 = new CvPoint();
   ClearPoint2(pt2);
 
   imshow("Create Descriptor Window", frame);
-  char _char = cvWaitKey(this->wait_time_);
+  key_ = cvWaitKey(this->wait_time_); 
 
-  if (_char == 'p' || _char == 'P') {
+  if (key_ == 'p' || key_ == 'P') {
     if (wait_time_ == 1)
       wait_time_ = 0;
     else
       wait_time_ = 1;
   }
-  // if(GloCTR == 2631 || GloCTR == 2633 || GloCTR == 2636 || GloCTR == 2641 ||
-  // GloCTR == 2643 || GloCTR == 2646 || GloCTR == 2663 || GloCTR == 2664 ||
-  // GloCTR == 2666 || GloCTR == 2671 )//&& GloCTR%2 == 0)  if(GloCTR >= 616 &&
-  // GloCTR <= 688 && GloCTR%2 == 0)
-  ////if(GloCTR >= 616 && GloCTR <= 664 && GloCTR%2 == 0)
-  //{
-  //	pt2->x = 300;
-  //	pt2->y = 300;
-  //}
+}
+
+void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
+  GloCTR++;
+  if (Signaler::getInstance().CheckAndReset("reset_tracker")) {
+    if (!creatingDescriptors) key_ = 'e';
+    detected_objects.clear();
+    Convex_LOG(
+        "detected_objects.clear(); call: " + std::to_string(++clears_counter_),
+        LogLevel::kKilo);
+  } else {
+    key_ = ' ';
+  }
+  /*Calculate convex hulls and descriptors. todo: rename this function*/
+  this->NCM(frame, fore);
+  /*Choose middle of contour by hand or simply pick middle of image*/
+  if (creatingDescriptors) HandleMouseCallbacks(frame);
+  else SetPoint(frame.cols / 2, frame.rows / 2);
+  /*Select clicked contour*/
+  SelectContour(frame);
+  /*Save created descriptor if pressed 'e'*/
+  SaveDescriptor();
+
+  // Clean up
+  this->ClearVectors();
+}
+
+void Convex::SelectContour(Mat frame) {
   if (pt2->x != -1) {
-    std::vector<PointNorm> asd;
+    std::vector<PointNorm> temp_descriptors;
     // finding nearest
     double max_dist = 10000000000;
     int nearest_index;
@@ -213,42 +224,42 @@ void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
         nearest_index = i;
       }
     }
-    int frameW = frame.cols;
-    int frameH = frame.rows;
-
-    frame.adjustROI(
-        -temp_rect[nearest_index].y,
-        (temp_rect[nearest_index].y + temp_rect[nearest_index].height) - frameH,
-        -temp_rect[nearest_index].x,
-        (temp_rect[nearest_index].x + temp_rect[nearest_index].width) - frameW);
-    char fileName_buff[100];
-    sprintf(fileName_buff, "descr/%d.bmp", GloCTR);
-    imshow("cut", frame);
-    cvWaitKey(10);
-    imwrite(fileName_buff, frame);
+    /*Save image containing only selected object rect*/
+    SaveContourROI(frame, nearest_index);
 
     for (size_t i = 0; i < this->behDescr[nearest_index].size(); i++) {
-      asd.push_back(this->behDescr[nearest_index][i]);
+      temp_descriptors.push_back(this->behDescr[nearest_index][i]);
     }
-    this->BD->descriptor.push_back(asd);
-    this->BD->v_sizes.push_back((int)asd.size());
+    this->BD->descriptor.push_back(temp_descriptors);
+    this->BD->v_sizes.push_back((int)temp_descriptors.size());
   }
-  // if(GloCTR == 689)
-  //{
-  //	_char = 'e';
-  //}
-  if (_char == 'e' || _char == 'E') {
+}
+
+void Convex::SaveContourROI(Mat frame, int nearest_index) {
+  frame.adjustROI(
+      -temp_rect[nearest_index].y,
+      (temp_rect[nearest_index].y + temp_rect[nearest_index].height) -
+          frame.rows,
+      -temp_rect[nearest_index].x,
+      (temp_rect[nearest_index].x + temp_rect[nearest_index].width) -
+          frame.cols);
+  char fileName_buff[100];
+  sprintf(fileName_buff, "descr/%d.bmp", GloCTR);
+  imshow("cut", frame);
+  cvWaitKey(10);
+  imwrite(fileName_buff, frame);
+}
+
+void Convex::SaveDescriptor() {
+  if (key_ == 'e' || key_ == 'E') {
     BD->sizes = new int[BD->descriptor.size()];
     for (size_t i = 0; i < BD->descriptor.size(); i++)
       BD->sizes[i] = BD->v_sizes[i];
 
-    BD->SaveBehaviorDescriptor("desc");
+    BD->SaveBehaviorDescriptor(std::string("descr" + std::to_string(clears_counter_)));
     BD->descriptor.clear();
     delete[] BD->sizes;
-  }
-
-  // Trzeba pamietac o czyszczeniu wektorow
-  this->ClearVectors();
+  }  
 }
 
 void Convex::ClearVectors() {
@@ -261,7 +272,7 @@ void Convex::ClearVectors() {
   temp_rect.clear();
   behDescr.clear();
 
-  //if (GloCTR == 8300 || GloCTR == 4500) detected_objects.clear();
+  // if (GloCTR == 8300 || GloCTR == 4500) detected_objects.clear();
 }
 
 void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
@@ -684,8 +695,8 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
     }
   }
   if (method3_) {  // Wersja do sprawdzenia, czy dobrze jest obslugiwana
-                  // wypuklosc ktora moze wyst¹piæ pomiêdzy koñcem i pocz¹tkiem
-                  // ( zawiniêcie siê numeracji punktow w wektorze )
+                   // wypuklosc ktora moze wyst¹piæ pomiêdzy koñcem i pocz¹tkiem
+                   // ( zawiniêcie siê numeracji punktow w wektorze )
     vector<vector<PointNorm>> points_picture;
     int contours_size = (int)contours.size();
     points_picture.resize(contours_size);
