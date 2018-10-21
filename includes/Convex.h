@@ -95,11 +95,11 @@ class Convex {
   double GetTheta(double x, double y, double alfa);
   
   /*Captures mouse clicks when manually choosing silhouettes for descriptors*/
-  void HandleMouseCallbacks(Mat frame);
+  void HandleMouseCallbacks(cv::Mat frame);
 
-  void SelectContour(Mat frame);
+  void SelectContour(cv::Mat frame);
 
-  void SaveContourROI(Mat frame, int idx);
+  void SaveContourROI(cv::Mat frame, int idx);
 
   void SaveDescriptor();
 

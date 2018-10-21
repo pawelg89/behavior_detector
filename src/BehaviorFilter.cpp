@@ -47,7 +47,7 @@ BehaviorFilter::BehaviorFilter(const std::string &path) {
   int* sizes = new int[header[0]];
   input.read((char*)sizes, sizeof(int) * header[0]);
   message += ", stateSizes={" + std::to_string(sizes[0]);
-  for (size_t i = 1; i < header[0]; ++i)
+  for (int i = 1; i < header[0]; ++i)
     message += "," + std::to_string(sizes[i]);
   message += "}";
 
