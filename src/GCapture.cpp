@@ -33,7 +33,7 @@ std::atomic<bool> finish_requested = false;
 unsigned int __stdcall buffer_thread(void *arg) {
   int cameraNumber = (int)arg;
   cout << video.size() << " <--> " << cameraNumber << endl;
-  while (video.size() < cameraNumber + 1) {
+  while ((int)video.size() < cameraNumber + 1) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     cout << "FAAK" << endl;
   }
@@ -65,7 +65,7 @@ unsigned int __stdcall buffer_thread(void *arg) {
 unsigned int __stdcall image_thread(void *arg) {
   int cameraNumber = (int)arg;
   cout << fore_lists.size() << " <--> " << cameraNumber << endl;
-  while (fore_lists.size() < cameraNumber + 1) {
+  while ((int)fore_lists.size() < cameraNumber + 1) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
     cout << "fore_lists.size() < cameraNumber + 1" << endl;
   }

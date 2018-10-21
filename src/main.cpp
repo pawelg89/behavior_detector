@@ -35,7 +35,7 @@ void SingleRun(const std::string &input_file = kInputFilePath) {
 }
 
 int main(int argc, char* argv[]) {
-  int repetitions = 1;
+  size_t repetitions = 1;
   bd::load_data("parameters.txt", "repetitions", repetitions);
   for (size_t i = 0; i < repetitions; ++i) {
     SingleRun();

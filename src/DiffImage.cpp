@@ -183,6 +183,7 @@ void DiffImage::DiffImageAction2() {
       if (convex_vec[c]->is_background_ok(frame.cols, frame.rows)) {
         if (mode == 5) convex_vec[c]->SHIELD((Mat)frame, fore, c);
         if (mode == 7) convex_vec[c]->SHIELD((Mat)frame, fore, true);
+        if (mode == 8) convex_vec[c]->SHIELD((Mat)frame, fore, false);
       } else {
         DI_LOG("!is_background_ok(frame.cols,frame.rows)", LogLevel::kWarning);
       }
@@ -193,7 +194,7 @@ void DiffImage::DiffImageAction2() {
       ms = (static_cast<long double>(stop) - start) / freq * 1000;
       if (mode != 7) imshow(pathDir[c], frame);
 
-      _char = cvWaitKey(waitTime);
+      _char = static_cast<char>(cvWaitKey(waitTime));
       if (_char == 's') {
         char nameBuffer[100];
         sprintf(nameBuffer, "processed_frames/%d.bmp", frameCounter);
