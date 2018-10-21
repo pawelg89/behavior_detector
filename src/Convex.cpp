@@ -20,26 +20,26 @@
 static int FrameCounter = 0;
 //=============================================================================
 //=============================OBSLUGA MYSZY===================================
-CvPoint *pt2;  // wskaznik na obiekt przechowujacy aktualnie wybrany punkt
+CvPoint pt_clicked;  // wskaznik na obiekt przechowujacy aktualnie wybrany punkt
 // funkcja obslugi myszy
 void MouseEvent2(int ev, int x, int y, int flags, void *param) {
   switch (ev) {
     // odczyt punktu z obrazu po wcisnieciu lewego przycisku myszy
     case CV_EVENT_LBUTTONDOWN:
-      pt2->x = x;
-      pt2->y = y;
+      pt_clicked.x = x;
+      pt_clicked.y = y;
       break;
     default:
       break;
   }
 }
-void ClearPoint2(CvPoint *p) {
-  p->x = -1;
-  p->y = -1;
+void ClearPoint2(CvPoint p) {
+  p.x = -1;
+  p.y = -1;
 }
 void SetPoint(int x, int y) {
-  pt2->x = x;
-  pt2->y = y;
+  pt_clicked.x = x;
+  pt_clicked.y = y;
 }
 
 namespace bd {
@@ -173,11 +173,10 @@ void Convex::SHIELD(Mat frame, Mat fore, int view) {
 void Convex::HandleMouseCallbacks(Mat frame) {
   // Obsluga dodawania punktow do deskryptora
   setMouseCallback("Create Descriptor Window", MouseEvent2);
-  pt2 = new CvPoint();
-  ClearPoint2(pt2);
+  ClearPoint2(pt_clicked);
 
   imshow("Create Descriptor Window", frame);
-  key_ = cvWaitKey(this->wait_time_); 
+  key_ = static_cast<char>(cvWaitKey(wait_time_)); 
 
   if (key_ == 'p' || key_ == 'P') {
     if (wait_time_ == 1)
@@ -188,7 +187,6 @@ void Convex::HandleMouseCallbacks(Mat frame) {
 }
 
 void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
-  GloCTR++;
   if (Signaler::getInstance().CheckAndReset("reset_tracker")) {
     if (!creatingDescriptors) key_ = 'e';
     detected_objects.clear();
@@ -198,29 +196,32 @@ void Convex::SHIELD(Mat frame, Mat fore, bool creatingDescriptors) {
   } else {
     key_ = ' ';
   }
-  /*Calculate convex hulls and descriptors. todo: rename this function*/
+  /* Save created descriptor if pressed 'e' */
+  if (key_ == 'e' || key_ == 'E') SaveDescriptor();
+
+  /* Calculate convex hulls and descriptors. todo: rename this function */
   this->NCM(frame, fore);
-  /*Choose middle of contour by hand or simply pick middle of image*/
+
+  /* Choose middle of contour by hand or simply pick middle of image */
   if (creatingDescriptors) HandleMouseCallbacks(frame);
   else SetPoint(frame.cols / 2, frame.rows / 2);
-  /*Select clicked contour*/
+  /* Select clicked contour */
   SelectContour(frame);
-  /*Save created descriptor if pressed 'e'*/
-  SaveDescriptor();
 
-  // Clean up
+  /* Clean up */
   this->ClearVectors();
+  GloCTR++;
 }
 
 void Convex::SelectContour(Mat frame) {
-  if (pt2->x != -1) {
+  if (pt_clicked.x != -1) {
     std::vector<PointNorm> temp_descriptors;
     // finding nearest
     double max_dist = 10000000000;
     int nearest_index;
     for (size_t i = 0; i < this->centers.size(); i++) {
-      if (this->GetDist(*pt2, this->centers[i]) < max_dist) {
-        max_dist = this->GetDist(*pt2, this->centers[i]);
+      if (this->GetDist(pt_clicked, this->centers[i]) < max_dist) {
+        max_dist = this->GetDist(pt_clicked, this->centers[i]);
         nearest_index = i;
       }
     }
@@ -251,15 +252,13 @@ void Convex::SaveContourROI(Mat frame, int nearest_index) {
 }
 
 void Convex::SaveDescriptor() {
-  if (key_ == 'e' || key_ == 'E') {
-    BD->sizes = new int[BD->descriptor.size()];
-    for (size_t i = 0; i < BD->descriptor.size(); i++)
-      BD->sizes[i] = BD->v_sizes[i];
+  BD->sizes = new int[BD->descriptor.size()];
+  for (size_t i = 0; i < BD->descriptor.size(); i++)
+    BD->sizes[i] = BD->v_sizes[i];
 
-    BD->SaveBehaviorDescriptor(std::string("descr" + std::to_string(clears_counter_)));
-    BD->descriptor.clear();
-    delete[] BD->sizes;
-  }  
+  BD->SaveBehaviorDescriptor();
+  BD->descriptor.clear();
+  delete[] BD->sizes;
 }
 
 void Convex::ClearVectors() {
@@ -271,16 +270,9 @@ void Convex::ClearVectors() {
   temp_pos.clear();
   temp_rect.clear();
   behDescr.clear();
-
-  // if (GloCTR == 8300 || GloCTR == 4500) detected_objects.clear();
 }
 
 void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
-  /*CvFont font;
-  cvInitFont(&font, CV_FONT_VECTOR0, 0.5, 0.5, 0, 1);*/
-  // if(cvWaitKey(1) == 's')
-  //	global_saveContours = !global_saveContours;
-
   blur(frame_gray, frame_gray, Size(3, 3));
   //	Ujednolicenie obiektow
   Mat element =
@@ -292,8 +284,7 @@ void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
                             Point(morph_size, morph_size));
   morphologyEx(frame_gray, frame_gray, MORPH_CLOSE, element);
 
-  /// Find contours
-  // Scalar color = Scalar(255, 255, 0);
+  // Find contours
   findContours(frame_gray.clone(), contours, hierarchy, CV_RETR_EXTERNAL,
                CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 
@@ -310,10 +301,6 @@ void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
   temp_rect.resize(contours.size());
   temp_pos.resize(contours.size());
   centers.resize(contours.size());
-
-  /*char pos_buff[100] = "";
-  ostrstream zapis(pos_buff, (int)sizeof(pos_buff), ios::app);
-*/
   // Interpolacja
   for (int i = 0; i < (int)contours.size(); i++) {
     int rect_leftmost = INT_MAX;
@@ -350,20 +337,6 @@ void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
                        (rect_bottomost + rect_topmost) / 2);
   }
 
-  // Pozycja, gorny lewy rog konturu
-  // for (size_t i = 0; i < contours.size(); i++) {
-  //  //	temp_pos[i]=contours[i][0];
-  //  temp_rect[i].x = temp_pos[i].x;
-  //  temp_rect[i].y = temp_pos[i].y;
-  //}
-  // for (size_t i = 0; i < temp_pos.size(); i++) {
-  //  temp_pos[i].x = temp_rect[i].x + temp_rect[i].width / 2;
-  //  temp_pos[i].y = temp_rect[i].y + temp_rect[i].height;
-  //}
-  // Progowanie sylwetki
-  // for (size_t i = 0; i < contours.size(); i++)
-  //  for (size_t j = 0; j < contours[i].size(); j++)
-  //    circle(frame_gray, contours[i][j], 0, 255, 1);
   threshold(frame_gray, frame_gray, 1, 255, CV_THRESH_BINARY);
 
   //------------------------------------------------------------------------------------------------
@@ -372,8 +345,6 @@ void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
   for (size_t i = 0; i < contours.size(); i++)
     contour_areas[i] = contourArea(contours[i]);
 
-  // color = Scalar(255, 255, 0);
-  // vector<vector<Point>> hull(contours.size());
   hulls.resize(contours.size());
   for (size_t i = 0; i < contours.size(); i++)
     convexHull(Mat(contours[i]), hulls[i], true);
@@ -381,15 +352,12 @@ void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
   NCMs.resize(contours.size());
   int number_iterations = 2;
   for (int iter = 0; iter < number_iterations; iter++) {
-    /*color = Scalar((iter + 1) * 255 / number_iterations,
-                   (iter + 1) * 255 / number_iterations, 0);*/
     for (size_t i = 0; i < contours.size(); i++) {
       vector<int> ncm;
       int NCM_counter = 1;
       int previdx = hulls[i].size() - 1;
       Point prev = hulls[i][previdx];
       Point curr = hulls[i][previdx];
-      // bool found2 = false;
       for (size_t j = 0; j < hulls[i].size(); j++) {
         if (j > 0) previdx = j - 1;
         prev = curr;
@@ -438,18 +406,11 @@ void Convex::NCM(Mat frame, Mat frame_gray, bool visualize) {
             Point nbr_pt = Point(farthest_point);
             nbr_pt.x += 3;
             nbr_pt.y -= 3;
-            // char buffer[10];
-            // putText(frame,itoa(NCM_counter,buffer,10),nbr_pt,
-            // FONT_HERSHEY_SIMPLEX,0.3,cvScalar(255,255,0));
-            // circle(frame,farthest_point,2,color,1);
             NCM_counter++;
 
             ncm.push_back(idx);
 
             if (number_iterations > 1) {
-              // Debug
-              // circle(frame,prev,2,cvScalar(255,0,0),1);//blue poczatek
-              // circle(frame,curr,2,cvScalar(0,255,0),1);//green koniec
               // If we need more iterations, Update Hull with new Points
               // containing  NCM that we have just found
               int nbr_ptsAdded =
