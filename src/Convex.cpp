@@ -257,8 +257,7 @@ void Convex::SaveDescriptor() {
     BD->sizes[i] = BD->v_sizes[i];
 
   BD->SaveBehaviorDescriptor();
-  BD->descriptor.clear();
-  delete[] BD->sizes;
+  BD->Clear();
 }
 
 void Convex::ClearVectors() {
@@ -477,6 +476,9 @@ double Rest(double x, double y) {
 }
 
 void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
+  std::string msg = "Contours size: " + std::to_string(this->contours.size());
+  Convex_LOG(msg, LogLevel::kMega);
+
   if (method0_) {
     // Wektor z punktami charakterystycznymi potrzebny do wykrywania zachowañ,
     // wersja normalizowana przez wysokosc i szerokosc

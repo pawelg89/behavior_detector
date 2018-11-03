@@ -24,6 +24,7 @@ class BehaviorDescription {
   ~BehaviorDescription(void);
 
   void SaveBehaviorDescriptor(int id = -1, const std::string &name = "unknown");
+  void Clear();
   
   std::vector<std::vector<PointNorm>> descriptor;
   std::vector<int> v_sizes;
@@ -39,6 +40,7 @@ class BehaviorDescription {
    void LoadBehaviorList();
    void AddBehaviorToList(BehaviorType beh_type);
    std::pair<bool, BehaviorType> GetBehaviorType(int id, const std::string &name);
+   std::string AskForBehName(int id);
 
    std::vector<BehaviorType> behavior_types_;
 

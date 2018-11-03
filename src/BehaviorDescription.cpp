@@ -24,30 +24,43 @@ BehaviorDescription::BehaviorDescription(void) {
 
 BehaviorDescription::~BehaviorDescription(void) {}
 
+void BehaviorDescription::Clear() {
+  for (auto item : descriptor)
+    item.clear();
+  descriptor.clear();
+  v_sizes.clear();
+  delete[] sizes;
+}
+
 void BehaviorDescription::SaveBehaviorDescriptor(int id, const std::string &name) {
   bool skip_save; BehaviorType beh_type;
   std::tie(skip_save, beh_type) = GetBehaviorType(id, name);
   if (skip_save) return;
-  //BehaviorType beh_type = std::move(loaded_beh.second);
   int cntr = ReadCounter(beh_type.cntr_file);
   std::string descr_name = MakeDescriptorName(beh_type.name, cntr);
 
-  std::ofstream descriptor_file;
+  std::ofstream descriptor_file, descriptor_text;
   descriptor_file.open(descr_name, std::ios_base::binary);
+  descriptor_text.open("text_" + descr_name);
+  descriptor_text << descr_name << "\n";
   bool temp = descriptor_file.is_open();
   int size1 = descriptor.size();  // Liczba polaczen
+  descriptor_text << "size1 " << size1 << "\n";
   int size3 = size1 + 1;
+  descriptor_text << "size3 " << size3 << "\n";
 
   // header
   descriptor_file.write((char*)&size1, 4);
   descriptor_file.write((char*)&beh_type.id, 4);
-
+  descriptor_text << "beh_type.id " << beh_type.id << "\n";
   // int size2 = descriptor[size1-1].size();//Liczba punktow deskryptora dla
   // kazdego stanu  descriptor_file.write((char*)&size2,4);
 
   // Wektor z rozmiarami deskryptorów
   descriptor_file.write((char*)sizes, sizeof(int) * size1);
-
+  descriptor_text << "sizes[]=";
+  for (int i=0; i<size1; ++i) descriptor_text << sizes[i] << " ";
+  descriptor_text << "\n";
   // Progi dla wszystkich stanow
   double *thresholds = new double[size1];
   // cout<<"Give threshold: "<<endl;
@@ -56,31 +69,58 @@ void BehaviorDescription::SaveBehaviorDescriptor(int id, const std::string &name
   for (int i = 0; i < size1; i++) thresholds[i] = temp1;
 
   descriptor_file.write((char*)thresholds, sizeof(double) * size1);
-
+  descriptor_text << "thresholds[]=";
+  for (int i=0; i<size1; ++i) descriptor_text << thresholds[i] << " ";
+  descriptor_text << "\n";
   // Mapa polaczen miedzy stanami, przy tworzeniu domyslna tylko z ³ancuchem
   // 1->2->3-> .. ->n
   map = new bool[size3 * size3];
-  for (int i = 0; i < size3; i++)
-    for (int j = 0; j < size3; j++) map[i * size3 + j] = (j == i + 1);
-
+  for (int i = 0; i < size3; i++) {
+    descriptor_text << "map["<< i << "][.]=";
+    for (int j = 0; j < size3; j++) {
+      map[i * size3 + j] = (j == i + 1);
+      descriptor_text << ((j == i + 1) ? "1 " : "0 ");
+    }
+    descriptor_text << "\n";
+  }
   descriptor_file.write((char*)map, sizeof(bool) * size3 * size3);
 
   // Oznaczenia czy sa to ostatnie stany
   bool* isLast = new bool[size3];
+  descriptor_text << "isLast[.]=";
   for (int i = 0; i < size3; i++) {
     isLast[i] = ((i == size1) ? true : false);
+    descriptor_text << ((i == size1) ? "true " : "false ");
   }
+  descriptor_text << "\n";
   descriptor_file.write((char*)isLast, sizeof(bool) * size3);
 
   // tablica z punktami (x,y) dla deskryptorow. <serialized>
+  std::string msg = "size1=" + std::to_string(size1) +
+                    ", descriptor.size()=" + std::to_string(descriptor.size());
+  if (descriptor.size() == size1) 
+    LOG("BehaviorDescriptor", msg + " OK!", LogLevel::kMega);
+  else 
+    LOG("BehaviorDescriptor", msg + " ERROR!", LogLevel::kError);  
   for (int i = 0; i < size1; i++) {
+    msg = "--sizes[i]=" + std::to_string(sizes[i]) +
+          ", descriptor[i].size()=" + std::to_string(descriptor[i].size());
+    if (descriptor[i].size() == sizes[i]) 
+      LOG("BehaviorDescriptor", msg + " OK!", LogLevel::kMega);
+    else 
+      LOG("BehaviorDescriptor", msg + " ERROR!", LogLevel::kCritical);
+    descriptor_text << "descriptor[i][.]=";
     for (int j = 0; j < sizes[i]; j++) {
       descriptor_file.write((char*)&descriptor[i][j].x, sizeof(double));
       descriptor_file.write((char*)&descriptor[i][j].y, sizeof(double));
+      descriptor_text << ((descriptor[i][j].x > 1.0 && j > 0) ? "\n				 (" : "(")
+                      << descriptor[i][j].x << ", " << descriptor[i][j].y
+                      << ")";
     }
+    descriptor_text << "\n";
   }
   descriptor_file.close();
-
+  descriptor_text.close();
   // Update Numeracji deskryptorów w pliku
   SaveCounter(beh_type.cntr_file, ++cntr);
 
@@ -107,7 +147,7 @@ int BehaviorDescription::ReadCounter(const std::string &file_name) {
     file.close();
     LOG("BehaviorDescription", 
         std::string("Reading from " + file_name + " counter is: " + std::to_string(counter)), 
-        LogLevel::kDetailed);
+        LogLevel::kMega);
   }
   return counter;
 }
@@ -137,6 +177,7 @@ int TryConvert(std::string input) {
   } catch (...) {
     std::string msg = "Probable syntax error in " + std::string(kBehaviorsListPath);
     LOG("BehaviorDescription", msg, LogLevel::kCritical);
+    throw;
   }
 }
 
@@ -144,9 +185,11 @@ void BehaviorDescription::LoadBehaviorList() {
   std::ifstream file(kBehaviorsListPath);
   if (!file.is_open()) return;
   while (!file.eof()) {
-   std::string name, id_s;
-    file >> id_s;
-    file >> name;
+    std::string name, id_s;
+    file >> id_s; 
+    if (!file.good()) break;
+    file >> name; 
+    if (!file.good()) break;
     int id = TryConvert(std::move(id_s));
     if (FindBehavior(id).id != -1 || FindBehavior(name).id != -1) {
       LOG("BehaviorDescription",
@@ -191,9 +234,10 @@ void BehaviorDescription::AddBehaviorToList(BehaviorType beh_type) {
   while (!file_in.eof()) {
     int id, c = 0; std::string name;
     file_in >> id;
-    if (IsEndOfFile(file_in, c++)) break;
+    if (!file_in.good()) break;
     file_in >> name;
-    if (FindBehavior(id).id != -1 || FindBehavior(name).id != -1) {
+    if (!file_in.good()) break;
+    if (FindBehavior(id).id == beh_type.id || FindBehavior(name).name == beh_type.name) {
       file_in.close();
       LOG("BehaviorDescription",
           std::string("Behavior: ID=" + std::to_string(id) +
@@ -209,6 +253,18 @@ void BehaviorDescription::AddBehaviorToList(BehaviorType beh_type) {
   file.close();
 }
 
+std::string BehaviorDescription::AskForBehName(int id) {
+  std::cout << "Give name of behavior with ID=" << id << std::endl;
+  std::string new_name;
+  std::cin >> new_name;
+  while (FindBehavior(new_name).id != -1) {
+    std::cout << "Name " << new_name
+              << " is already taken. Pick a different one." << std::endl;
+    std::cin >> new_name;
+  }
+  return new_name;
+}
+
 std::pair<bool, BehaviorType>
 BehaviorDescription::GetBehaviorType(int id, const std::string &name) {
   if (id == -1) {
@@ -222,16 +278,20 @@ BehaviorDescription::GetBehaviorType(int id, const std::string &name) {
   // 'id' is supposed to be a meaningful ID at this point
   BehaviorType beh_type = FindBehavior(id);
   if (beh_type.name == "unknown") {
-    std::cout << "Give name of behavior with ID=" << id << std::endl;
-    std::cin >> beh_type.name;
+    beh_type.name = AskForBehName(id);
     beh_type.id = id;
     beh_type.UpdateCounterFile();
     SaveCounter(beh_type.cntr_file, 0);
     AddBehaviorToList(beh_type);
     behavior_types_.push_back(beh_type);
+    LOG("BehaviorDescription",
+        std::string("Adding behavior: ID=" + std::to_string(beh_type.id) +
+                    " NAME=" + beh_type.name),
+        LogLevel::kDetailed);
   } else {
     LOG("BehaviorDescription",
-        "Loaded behavior: " + beh_type.name + ", id " + std::to_string(beh_type.id),
+        "Loaded behavior: " + beh_type.name + ", id " +
+            std::to_string(beh_type.id),
         LogLevel::kDetailed);
   }
   return std::move(std::pair<bool, BehaviorType>(false, beh_type));
