@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include <vector>
 // OpenCV includes
 #include <opencv\cv.h>
@@ -7,7 +8,7 @@
 namespace bd {
 
 class Collector {
- public: // Singleton type
+ public:  // Singleton type
   static Collector &getInstance() {
     static Collector instance;
     return instance;
@@ -18,14 +19,18 @@ class Collector {
  private:
   Collector() = default;
   ~Collector() = default;
- 
-public: // Exposed methods
+
+ public:  // Exposed methods
+  /*Add data under given key. Simple push_back.*/
   void AddData(const std::string &key, double data);
+  /*Add data only if it hasn't been added yet.*/
+  void AddDataOnce(const std::string &key, double data);
+  /*Save all collected vectors to specified out_file, default: "collected_data.txt".*/
   void SaveData(const std::string &out_file = "collected_data.txt");
 
   std::vector<std::pair<std::string, cv::Mat>> detections;
-  
- private: // collected data
+
+ private:  // collected data
   std::string CheckDataFilePath(const std::string &path);
 
   std::map<std::string, std::vector<double>> data_;

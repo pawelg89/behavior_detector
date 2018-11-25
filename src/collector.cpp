@@ -7,6 +7,13 @@ void Collector::AddData(const std::string &key, double data) {
   data_[key].push_back(data);
 }
 
+void Collector::AddDataOnce(const std::string &key, double data) {
+  for (const auto &d : data_[key]) {
+    if (d == data) return;  
+  }
+  data_[key].push_back(data);
+}
+
 void Collector::SaveData(const std::string &out_file) {
   std::ofstream output(CheckDataFilePath(out_file));
   for (const auto &entries : data_) {
