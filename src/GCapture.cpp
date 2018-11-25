@@ -11,20 +11,17 @@
 #include "..\includes\signaler.h"
 
 namespace bd {
-using namespace cv;
-using namespace std;
-
 //---------------------------------------------------------------------------
 //-----------UWAGA STREAFA ZAGROZONA, ZMIENNE GLOBALNE-----------------------
 //----------------------NIE DOTYKAC!!!!--------------------------------------
 //---------------------------------------------------------------------------
-vector<CRITICAL_SECTION> critical;
-vector<HANDLE> eventStart;
-vector<Mat> buffer;
-vector<Mat> fore_vec;
-vector<BackgroundSubtractorMOG2 *> bg_vec;
-vector<int> gc_frames_count;
-vector<VideoCapture *> video{};
+std::vector<CRITICAL_SECTION> critical;
+std::vector<HANDLE> eventStart;
+std::vector<cv::Mat> buffer;
+std::vector<cv::Mat> fore_vec;
+std::vector<cv::BackgroundSubtractorMOG2 *> bg_vec;
+std::vector<int> gc_frames_count;
+std::vector<cv::VideoCapture *> video{};
 std::vector<std::ifstream> fore_lists;
 std::vector<std::ifstream> frame_lists;
 bool kAsynchronous;
@@ -32,10 +29,10 @@ std::atomic<bool> finish_requested = false;
 
 unsigned int __stdcall buffer_thread(void *arg) {
   int cameraNumber = (int)arg;
-  cout << video.size() << " <--> " << cameraNumber << endl;
+  std::cout << video.size() << " <--> " << cameraNumber << std::endl;
   while ((int)video.size() < cameraNumber + 1) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    cout << "FAAK" << endl;
+    std::cout << "FAAK" << std::endl;
   }
   while (!finish_requested) {
     while (!TryEnterCriticalSection(&critical[cameraNumber])) {
@@ -64,10 +61,10 @@ unsigned int __stdcall buffer_thread(void *arg) {
 
 unsigned int __stdcall image_thread(void *arg) {
   int cameraNumber = (int)arg;
-  cout << fore_lists.size() << " <--> " << cameraNumber << endl;
+  std::cout << fore_lists.size() << " <--> " << cameraNumber << std::endl;
   while ((int)fore_lists.size() < cameraNumber + 1) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    cout << "fore_lists.size() < cameraNumber + 1" << endl;
+    std::cout << "fore_lists.size() < cameraNumber + 1" << std::endl;
   }
   std::string next_image;
   while (!finish_requested && !fore_lists[cameraNumber].eof() &&
@@ -122,11 +119,11 @@ GCapture::GCapture(int cams_number, bool async) {
   for (int i = 0; i < cams_number; i++) {
     // Ustalenie sciezek dostepu do strumieni wideo
     char pathDirX[1000] = "";
-    ostrstream monkeys(pathDirX, (int)sizeof(pathDirX),
-                       ios::app);  // hehe legacy stream name ];->
-    string tempDir;
+    std::ostrstream monkeys(pathDirX, (int)sizeof(pathDirX),
+                            std::ios::app);  // hehe legacy stream name ];->
+    std::string tempDir;
     monkeys.seekp(0);
-    monkeys << "pathDir" << i << ends;
+    monkeys << "pathDir" << i << std::ends;
     load_data("parameters.txt", pathDirX, tempDir);
     // Inicjalizacja sekcji krytycznych dla poszczegolnych kamer i eventu na
     // start mozliwosci odczytania
@@ -148,14 +145,14 @@ void GCapture::InitializeVideo(const std::string &path, int i) {
     mogThreshold = 50.0f;
   if (!load_data("parameters.txt", "backgroundRatio", backgroundRatio))
     backgroundRatio = 0.7f;
-  bg_vec.push_back(new BackgroundSubtractorMOG2(10000, mogThreshold, true));
+  bg_vec.push_back(new cv::BackgroundSubtractorMOG2(10000, mogThreshold, true));
   //		bg_vec[i]->backgroundRatio = backgroundRatio;
 
   // Wczytanie strumieni do handlerow no i zapisanie tych sciezek na potem (w
   // sumie nie wiem czy sie przyda ale moze sie przyda :P)
-  cout << "Video path: " << path << endl;
+  std::cout << "Video path: " << path << std::endl;
   video.clear();
-  video.push_back(new VideoCapture(path));
+  video.push_back(new cv::VideoCapture(path));
   pathDir_.push_back(path);
 
   kAsynchronous = IsLiveCamera(path);
@@ -165,13 +162,13 @@ void GCapture::InitializeVideo(const std::string &path, int i) {
       (HANDLE)_beginthreadex(0, 0, &buffer_thread, (void *)i, 0, 0);
   camThreads_.push_back(thrdBuffer);
   WaitForSingleObject(eventStart[i], INFINITE);
-  cout << "Camera[" << i << "] connection established." << endl;
+  std::cout << "Camera[" << i << "] connection established." << std::endl;
 }
 
 void GCapture::InitializeImages(const std::string &path, int i) {
   // Wczytanie strumieni do handlerow no i zapisanie tych sciezek na potem (w
   // sumie nie wiem czy sie przyda ale moze sie przyda :P)
-  cout << "Images list file: " << path << endl;
+  std::cout << "Images list file: " << path << std::endl;
   pathDir_.push_back(path);
 
   kAsynchronous = false;
@@ -182,7 +179,7 @@ void GCapture::InitializeImages(const std::string &path, int i) {
       (HANDLE)_beginthreadex(0, 0, &image_thread, (void *)i, 0, 0);
   camThreads_.push_back(thrdBuffer);
   WaitForSingleObject(eventStart[i], INFINITE);
-  cout << "Image sequence[" << i << "] loaded." << endl;
+  std::cout << "Image sequence[" << i << "] loaded." << std::endl;
 }
 
 namespace {
@@ -245,12 +242,12 @@ GCapture::~GCapture(void) {
   std::cout << "GCapture deleted successfully." << std::endl;
 }
 
-void GCapture::QueryFrame(Mat &frame, Mat &fore, int i) {
+void GCapture::QueryFrame(cv::Mat &frame, cv::Mat &fore, int i) {
   if (kAsynchronous) AsyncQuery(frame, fore, i);
   else               SyncQuery(frame, fore, i);
 }
 
-void GCapture::AsyncQuery(Mat &frame, Mat &fore, int i) {
+void GCapture::AsyncQuery(cv::Mat &frame, cv::Mat &fore, int i) {
   while (!TryEnterCriticalSection(&critical[i])) {
   }
   if (!buffer[i].empty() && gc_frames_count[i] > 0) {
@@ -263,7 +260,7 @@ void GCapture::AsyncQuery(Mat &frame, Mat &fore, int i) {
       gc_frames_count[i] = 0;
     }
   } else {
-    frame = Mat{};
+    frame = cv::Mat{};
   }
   LeaveCriticalSection(&critical[i]);
 }
@@ -293,7 +290,7 @@ void GCapture::SyncQuery(cv::Mat &frame, cv::Mat &fore, int i) {
         continue;
       }
       finished = true;
-      frame = Mat{};
+      frame = cv::Mat{};
       LOG("SyncQuery", "FINISHED!!!", LogLevel::kWarning);
     }
   }  // while(!finished)
@@ -307,6 +304,10 @@ std::string GCapture::GetFramesPath(const std::string &path, int i) {
     return std::string(substr + "_frames.txt");
   }
   throw std::runtime_error("GetFramesPath provided with non .txt file.");
+}
+
+void GCapture::SendMockFrame() {
+
 }
 
 }  // namespace bd
