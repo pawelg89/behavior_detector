@@ -14,6 +14,11 @@ void Collector::AddDataOnce(const std::string &key, double data) {
   data_[key].push_back(data);
 }
 
+std::vector<double> Collector::Get(const std::string &key) {
+  auto search = data_.find(key);
+  return (search != data_.end()) ? data_.at(key) : std::vector<double>();
+}
+
 void Collector::SaveData(const std::string &out_file) {
   std::ofstream output(CheckDataFilePath(out_file));
   for (const auto &entries : data_) {

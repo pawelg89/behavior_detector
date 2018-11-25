@@ -25,6 +25,8 @@ class Collector {
   void AddData(const std::string &key, double data);
   /*Add data only if it hasn't been added yet.*/
   void AddDataOnce(const std::string &key, double data);
+  /*Returns data vector from under specified 'key'. Empty vector if data does not exist.*/
+  std::vector<double> Get(const std::string &key);
   /*Save all collected vectors to specified out_file, default: "collected_data.txt".*/
   void SaveData(const std::string &out_file = "collected_data.txt");
 
