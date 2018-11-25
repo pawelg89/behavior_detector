@@ -231,6 +231,8 @@ void Convex::SelectContour(Mat frame) {
     for (size_t i = 0; i < this->behDescr[nearest_index].size(); i++) {
       temp_descriptors.push_back(this->behDescr[nearest_index][i]);
     }
+    std::string msg = "temp_descriptors:" + to_string(temp_descriptors);
+    Convex_LOG(msg, LogLevel::kCritical);
     this->BD->descriptor.push_back(temp_descriptors);
     this->BD->v_sizes.push_back((int)temp_descriptors.size());
   }
@@ -733,8 +735,20 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
 //--------------------------- Behavior Filtering ------------------------------
 void Convex::BehaviorFiltersCheck(Mat frame) {
   for (const auto &obj : detected_objects) {
-    if (obj->behDescr.size() > 0 && !obj->prediction_state && !obj->border)
+    Convex_LOG("obj: " + std::to_string(obj->number), LogLevel::kDetailed);
+    if (obj->behDescr.size() > 0 && !obj->prediction_state && !obj->border) {
       obj->CheckBehavior();
+    } else {
+      std::string msg = "filters: ";
+      for (const auto &filter : obj->bFilter)
+        msg += filter->behaviorDescription + " ";
+      Convex_LOG(msg, LogLevel::kDetailed);
+      if (obj->behDescr.size() <= 0)
+        Convex_LOG("obj->behDescr.size() <= 0", LogLevel::kWarning);
+      if (obj->prediction_state)
+        Convex_LOG("obj->prediction_state==true", LogLevel::kWarning);
+      if (obj->border) Convex_LOG("obj->border", LogLevel::kWarning);
+    }
     obj->ShowBehaviorStates(frame);
     SaveDetectedBehaviors(obj, frame);
   }

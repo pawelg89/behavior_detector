@@ -11,8 +11,9 @@ constexpr const char *kBehaviorsListPath = "behavior_names_list.txt";
 }
 
 BehaviorDescription::BehaviorDescription(void) {
-  behavior_types_.reserve(7);
+  behavior_types_.reserve(8);
   behavior_types_.emplace_back(-1, "unknown");
+  behavior_types_.emplace_back(1, "intruder");
   behavior_types_.emplace_back(2, "help");
   behavior_types_.emplace_back(3, "faint");
   behavior_types_.emplace_back(4, "fight");
@@ -168,6 +169,10 @@ BehaviorType BehaviorDescription::FindBehavior(const std::string &behavior_name)
     if (behavior.name == behavior_name) return behavior;
   }
   return std::move(BehaviorType(-1, "unknown"));
+}
+
+size_t BehaviorDescription::GetBehaviorTypesCount() const {
+  return behavior_types_.size();
 }
 
 int TryConvert(std::string input) {

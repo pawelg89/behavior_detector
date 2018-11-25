@@ -102,7 +102,7 @@ void DiffImage::DiffImageAction2() {
   int frameCounter = 0;
   int mode;
   if (!load_data("parameters.txt", "mode", mode)) mode = 5;
-  std::cout << "Chosen moode: " << mode << std::endl;
+  std::cout << "Chosen mode: " << mode << std::endl;
   std::string temp_msg = "Chosen mode: " + std::to_string(mode);
   DI_LOG(temp_msg, LogLevel::kSetup);
 

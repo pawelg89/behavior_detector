@@ -240,7 +240,7 @@ void BehaviorState::SaveStatistic(std::vector<PointNorm> inputVector) {
 
 BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
                                           bool isMoving) {
-  BS_LOG("ChangeState()", LogLevel::kMega, true);
+  BS_LOG("ChangeState()", LogLevel::kKilo, true);
   if (statsON) SaveStatistic(inputVector);
   bool accepted = false;
   // Search best possible next state
@@ -278,15 +278,22 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
                          0.5);
         break;
     }
-    // Debug
-    // int pt_match_count = 0;
-
+    
+    std::string msg = "nextStates[" + std::to_string(i) +
+                      "]:" + to_string(nextStates[i]->acceptableInput);
+    BS_LOG(msg, LogLevel::kDebug);
+    msg = "inputVector[" + std::to_string(i) + "]:" + to_string(inputVector);
+    BS_LOG(msg, LogLevel::kDebug);
+    std::string debug_msg =
+        "States being compared[" + std::to_string(i) + "]: ";
     for (int j = nextStates[i]->methodIdxStart;
          j < nextStates[i]->methodIdxStop && j < (int)inputVector.size() &&
          j < (int)nextStates[i]->acceptableInput.size();
          j++) {
       tempDistance +=
           GetDist(inputVector[j], nextStates[i]->acceptableInput[j]);
+      debug_msg += "[" + to_string(inputVector[j]) + "?=" +
+                  to_string(nextStates[i]->acceptableInput[j]) + "]";
       if ((GetDist(inputVector[j], nextStates[i]->acceptableInput[j]) <=
            nextStates[i]->threshold) ||
           (nextStates[i]->methodIdxStart > 11 &&
@@ -306,6 +313,10 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
         break;
       }
     }
+    if (tempDistance < 0.001)
+      BS_LOG(debug_msg, LogLevel::kKilo);
+    else
+      BS_LOG(debug_msg, LogLevel::kDebug);
   }
   // If possible move to that state
   if (accepted) {

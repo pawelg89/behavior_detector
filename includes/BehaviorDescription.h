@@ -23,6 +23,13 @@ class BehaviorDescription {
   BehaviorDescription(void);
   ~BehaviorDescription(void);
 
+  /* Used to get BehaviorType associated with given id. */
+  BehaviorType FindBehavior(int id);
+  /* Used to get BehaviorType associated with given behavior name. */
+  BehaviorType FindBehavior(const std::string &bahavior_name);
+  /* Get number of learnt behaviors. */
+  size_t GetBehaviorTypesCount() const;
+
   void SaveBehaviorDescriptor(int id = -1, const std::string &name = "unknown");
   void Clear();
   
@@ -35,8 +42,6 @@ class BehaviorDescription {
    void SaveCounter(const std::string &file_name, int counter);
    int ReadCounter(const std::string &file_name);
    inline std::string MakeDescriptorName(const std::string &behavior_name, int counter);
-   BehaviorType FindBehavior(int id);
-   BehaviorType FindBehavior(const std::string &bahavior_name);
    void LoadBehaviorList();
    void AddBehaviorToList(BehaviorType beh_type);
    std::pair<bool, BehaviorType> GetBehaviorType(int id, const std::string &name);
