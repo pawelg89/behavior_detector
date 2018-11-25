@@ -769,14 +769,18 @@ void Convex::SaveDetectedBehaviors(detected_object *obj, Mat frame) const {
       // Save frame with detected behavior under date name
       if (!obj->eventSaved[j]) {
         Timer stoper{false};
-        char namebuffer[100];
         time_t now = time(0);
         tm *ltm = localtime(&now);
         CreateDirectoryA((LPCSTR) "events", NULL);
-        sprintf(namebuffer, "events/%dy%dm%dd %dh%dm%ds.png",
-                1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
-                ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-        Collector::getInstance().detections.emplace_back(namebuffer, frame.clone());
+        BehaviorDescription beh_descr;
+        const std::string behavior = beh_descr.FindBehavior(obj->bFilter[j]->behaviorType).name;
+        std::strstream filename;
+        filename << "events/" << 1900 + ltm->tm_year << "y"<< 1 + ltm->tm_mon << "m" 
+                 << ltm->tm_mday << "d " << ltm->tm_hour << "h"
+                 << ltm->tm_min << "m" << ltm->tm_sec << "s_" << behavior
+                 << "_obj" << obj->number << ".png" << std::ends;
+        Collector::getInstance().detections.emplace_back(filename.str(), frame.clone());        
+        Collector::getInstance().AddDataOnce(behavior, obj->number);
         obj->eventSaved[j] = true;
         stoper.PrintElapsed("save_img");
       }
