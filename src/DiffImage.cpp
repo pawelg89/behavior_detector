@@ -93,6 +93,21 @@ void MakeWindow(const std::string &name, const cv::Point2i size,
   moveWindow(name, position.x, position.y);
 }
 
+void PrintDetections() {
+  BehaviorDescription beh_descr;
+  for (int i = 0; i < beh_descr.GetBehaviorTypesCount(); ++i) {
+    auto behavior_detections = Collector::getInstance().Get(beh_descr.FindBehavior(i).name);
+    if (behavior_detections.empty()) continue;
+    std::string message = "Detected " +
+                          std::to_string(behavior_detections.size()) + " " +
+                          beh_descr.FindBehavior(i).name + ", on objects: ";
+    for (const auto &det : behavior_detections) {
+      message += std::to_string((int)det) + " ";
+    }
+    DI_LOG(message, LogLevel::kDefault);
+  }
+}
+
 void DiffImage::DiffImageAction2() {
   // zmienne £ukasza
   vector<vector<Point2f>> marker_coord;
@@ -215,6 +230,7 @@ void DiffImage::DiffImageAction2() {
   stoper.PrintElapsed("saving detections");
   Collector::getInstance().SaveData();
   stoper.PrintElapsed("saving collected data");
+  PrintDetections();
   DI_LOG("Frames processed: " + std::to_string(frameCounter), LogLevel::kDefault);
   DI_LOG("Leaving main loop. Calling destructors...", LogLevel::kDefault);
   cv::destroyAllWindows();
