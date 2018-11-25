@@ -139,7 +139,7 @@ void Convex::SHIELD(Mat frame, Mat fore, int view) {
     detected_objects.clear();
     Convex_LOG(
         "detected_objects.clear(); call: " + std::to_string(++clears_counter_),
-        LogLevel::kKilo);
+        LogLevel::kDetailed);
   }
   message += timer.PrintElapsed("SignalNClear", false);
   collector->AddData("SignalNClear", timer.last_elapsed);
@@ -735,7 +735,7 @@ void Convex::BehaviorInput(Mat frame, vector<vector<Point>> hulls) {
 //--------------------------- Behavior Filtering ------------------------------
 void Convex::BehaviorFiltersCheck(Mat frame) {
   for (const auto &obj : detected_objects) {
-    Convex_LOG("obj: " + std::to_string(obj->number), LogLevel::kDetailed);
+    Convex_LOG("obj: " + std::to_string(obj->number), LogLevel::kKilo);
     if (obj->behDescr.size() > 0 && !obj->prediction_state && !obj->border) {
       obj->CheckBehavior();
     } else {
@@ -776,7 +776,7 @@ void Convex::SaveDetectedBehaviors(detected_object *obj, Mat frame) const {
         sprintf(namebuffer, "events/%dy%dm%dd %dh%dm%ds.png",
                 1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
                 ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-        Collector::getInstance().detections.emplace_back(namebuffer, frame);
+        Collector::getInstance().detections.emplace_back(namebuffer, frame.clone());
         obj->eventSaved[j] = true;
         stoper.PrintElapsed("save_img");
       }

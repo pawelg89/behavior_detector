@@ -27,6 +27,43 @@ std::vector<std::ifstream> frame_lists;
 bool kAsynchronous;
 std::atomic<bool> finish_requested = false;
 
+namespace {
+bool IsConnectedCamera(const std::string &path) {
+  for (size_t i = 0; i < 10; ++i)
+    if (path == std::to_string(i)) return true;
+  return false;
+}
+bool IsStreamCamera(const std::string &path) {
+  if (path.find("rtsp") != std::string::npos) return true;
+  if (path.find("http") != std::string::npos) return true;
+  return false;
+}
+bool IsSupportedImage(const std::string &path) {
+  if (path.find(".png") != std::string::npos) return true;
+  if (path.find(".jpg") != std::string::npos) return true;
+  return false;
+}
+void SendMockFrame(int cameraNumber) {
+  std::string next_image = "closing_mock_frame";
+  cv::Mat mock_frame{cv::Size(640, 480), CV_8UC1, cv::Scalar(0)};
+  size_t wait_counter = 0;
+  while (!TryEnterCriticalSection(&critical[cameraNumber])) {
+    ++wait_counter;
+  }
+  if (wait_counter > 0) {
+    std::string msg =
+        "TryEnterCriticalSection calls=" + std::to_string(wait_counter) +
+        " cam=" + std::to_string(cameraNumber);
+    LOG("image_thread", msg, LogLevel::kMega);
+  }
+  LOG("image_thread", "sending mock frame (entirely black)", LogLevel::kSetup);
+  bd::Signaler::getInstance().SignalPathChange(next_image, "reset_tracker");
+ // buffer[cameraNumber] = mock_frame;
+  fore_vec[cameraNumber] = mock_frame;
+  LeaveCriticalSection(&critical[cameraNumber]);
+}
+}  // namespace
+
 unsigned int __stdcall buffer_thread(void *arg) {
   int cameraNumber = (int)arg;
   std::cout << video.size() << " <--> " << cameraNumber << std::endl;
@@ -96,7 +133,8 @@ unsigned int __stdcall image_thread(void *arg) {
 
     LeaveCriticalSection(&critical[cameraNumber]);
   }
-
+  
+  SendMockFrame(cameraNumber);
   LOG("image_thread", "camera[" + std::to_string(cameraNumber) + "] finished",
       LogLevel::kSetup);
   return 0;
@@ -181,24 +219,6 @@ void GCapture::InitializeImages(const std::string &path, int i) {
   WaitForSingleObject(eventStart[i], INFINITE);
   std::cout << "Image sequence[" << i << "] loaded." << std::endl;
 }
-
-namespace {
-bool IsConnectedCamera(const std::string &path) {
-  for (size_t i = 0; i < 10; ++i)
-    if (path == std::to_string(i)) return true;
-  return false;
-}
-bool IsStreamCamera(const std::string &path) {
-  if (path.find("rtsp") != std::string::npos) return true;
-  if (path.find("http") != std::string::npos) return true;
-  return false;
-}
-bool IsSupportedImage(const std::string &path) {
-  if (path.find(".png") != std::string::npos) return true;
-  if (path.find(".jpg") != std::string::npos) return true;
-  return false;
-}
-}  // namespace
 
 bool GCapture::IsLiveCamera(const std::string &path) {
   if (IsConnectedCamera(path)) return true;
@@ -304,10 +324,6 @@ std::string GCapture::GetFramesPath(const std::string &path, int i) {
     return std::string(substr + "_frames.txt");
   }
   throw std::runtime_error("GetFramesPath provided with non .txt file.");
-}
-
-void GCapture::SendMockFrame() {
-
 }
 
 }  // namespace bd
