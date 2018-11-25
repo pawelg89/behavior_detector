@@ -1,4 +1,6 @@
 #include "..\includes\detected_object.h"
+// Project includes
+#include "..\includes\BehaviorDescription.h"
 #include "..\includes\logger.h"
 
 namespace bd {
@@ -6,6 +8,7 @@ namespace bd {
 detected_object::detected_object(void) {
   human = false;
   border = false;
+  prediction_state = false;
   prediction_life_time = 0;
   KFilter = new Kalman_Filter();
   history_counter = 0;
@@ -92,59 +95,15 @@ void detected_object::calc_speed(double x, double z, int timex) {
 void detected_object::CheckBehavior() {
   std::string tmp_message;
   std::vector<bool> foundBehaviors;
-  foundBehaviors.resize(10);
+  BehaviorDescription beh_descr;
+  foundBehaviors.resize(beh_descr.GetBehaviorTypesCount());
   for (size_t i = 0; i < bFilter.size(); i++) {
-    switch (bFilter[i]->behaviorType) {
-      case 2:  // Calling for help
-        this->bFilter[i]->Check(behDescr, is_moving);
-        break;
-      case 3:  // Fainted person
-        bFilter[i]->Check(behDescr, is_moving);
-        break;
-      case 4:  // Fight
-        this->bFilter[i]->Check(behDescr, is_moving);
-        break;
-      default:
-        this->bFilter[i]->Check(behDescr, is_moving);
-    }
+    bFilter[i]->Check(behDescr, is_moving);
     if (bFilter[i]->found) foundBehaviors[bFilter[i]->behaviorType] = true;
   }
-
   for (int i = 0; i < (int)foundBehaviors.size(); i++) {
-    if (foundBehaviors[i]) switch (i) {
-        case 1:
-          tmp_message.append("INTRUZ ");
-          break;
-        case 2:
-          tmp_message.append("POMOCY ");
-          break;
-        case 3:
-          tmp_message.append("OMDLENIE ");
-          break;
-        case 4:
-          tmp_message.append("BOJKA ");
-          break;
-        case 5:
-          tmp_message.append("UPADEK ");
-          break;
-        case 6:
-          tmp_message.append("CIERPIENIE ");
-          break;
-        case 7:
-          tmp_message.append("KUCANIE ");
-          break;
-        case 8:
-          tmp_message.append("IDZIE ");
-          break;
-        case 9:
-          tmp_message.append("STOI ");
-          break;
-        case 10:
-          tmp_message.append("BIEGNIE ");
-          break;
-        default:
-          tmp_message.append("Nieznany typ zachowania");
-      }
+    if (foundBehaviors[i]) 
+      tmp_message.append(beh_descr.FindBehavior(i).name + " ");
   }
   message = tmp_message;
 }

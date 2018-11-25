@@ -476,6 +476,7 @@ int Convex::track_objects(IplImage *img, int c) {
         temp_obj->next_pos = temp_obj->KFilter->statePt;
         global_counter_++;
         temp_obj->number = -1;  // global_counter;
+        temp_obj->behDescr = behDescr[i];
         temp_obj->SetObjNumber();
         detected_objects.push_back(temp_obj);
       }

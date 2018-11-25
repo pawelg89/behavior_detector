@@ -100,25 +100,43 @@ Logger::Logger() {
 
 Logger::~Logger() { log_.close(); }
 
+std::pair<bool, LogLevel> LoadNamedLevel(const std::string &name) {
+  std::string log_level_str;
+  if (load_data<std::string>("parameters.txt", "log_level_" + name, log_level_str))
+    return std::make_pair<bool, LogLevel>(true, ToLogLevel(log_level_str));
+  else
+    return std::make_pair<bool, LogLevel>(false, LogLevel());
+}
+
 int Logger::LOG(const std::string &name, const std::string &msg,
                 const LogLevel level, const bool new_line) {
   std::lock_guard<std::mutex> guard(log_mutex_);
-  if (level >= log_level_) {
-    if (new_line) {
-      time(&rawtime_);
-      timeinfo_ = localtime(&rawtime_);
-      log_ << "\n[" << std::setw(2) << std::setfill('0') << timeinfo_->tm_hour;
-      log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_min;
-      log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_sec;
-      log_ << "] " << std::setw(8) << std::setfill(' ') << ToString(level);
-      log_ << " : " << std::setw(20) << std::setfill(' ') << name;
-      log_ << " : " << msg << std::flush;
-    } else {
-      log_ << msg << std::flush;
+  std::pair<bool, LogLevel> named_level = LoadNamedLevel(name);
+  if (named_level.first) {
+    if (level >= named_level.second) {
+      Log(name, msg, level, new_line);
+      return 0;
     }
+  } else if (level >= log_level_) {
+    Log(name, msg, level, new_line);
     return 0;
+  } 
+  return -1;
+}
+
+void Logger::Log(const std::string &name, const std::string &msg,
+                 const LogLevel level, const bool new_line) {
+  if (new_line) {
+    time(&rawtime_);
+    timeinfo_ = localtime(&rawtime_);
+    log_ << "\n[" << std::setw(2) << std::setfill('0') << timeinfo_->tm_hour;
+    log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_min;
+    log_ << ":" << std::setw(2) << std::setfill('0') << timeinfo_->tm_sec;
+    log_ << "] " << std::setw(8) << std::setfill(' ') << ToString(level);
+    log_ << " : " << std::setw(20) << std::setfill(' ') << name;
+    log_ << " : " << msg << std::flush;
   } else {
-    return -1;
+    log_ << msg << std::flush;
   }
 }
 

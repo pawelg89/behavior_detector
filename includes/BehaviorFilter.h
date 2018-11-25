@@ -20,6 +20,7 @@ class BehaviorFilter {
   int lPkt;
 
  public:
+  std::string descriptor_path;
   std::string behaviorDescription;
   int behaviorType;
   bool found;

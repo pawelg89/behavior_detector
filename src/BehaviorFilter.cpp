@@ -1,5 +1,8 @@
-#include <fstream>
 #include "..\includes\BehaviorFilter.h"
+// STL includes
+#include <fstream>
+// Project includes
+#include "..\includes\BehaviorDescription.h"
 #include "..\includes\logger.h"
 
 namespace bd {
@@ -15,22 +18,18 @@ int BF_LogOnce(const std::string &msg, const LogLevel level, bool new_line = tru
 
 BehaviorFilter::BehaviorFilter(void) {}
 
-BehaviorFilter::BehaviorFilter(const std::string &path) {
-  method.resize(11, 0);
+BehaviorFilter::BehaviorFilter(const std::string& path)
+    : descriptor_path(path) {
+  BehaviorDescription beh_descr;
+  method.resize(beh_descr.GetBehaviorTypesCount(), 0);
   if (!load_data("parameters.txt", "lPkt", lPkt)) lPkt = 10;
-  if (!load_data("parameters.txt", "method_help", method[2])) method[2] = 0;
-  if (!load_data("parameters.txt", "method_faint", method[3])) method[3] = 0;
-  if (!load_data("parameters.txt", "method_fight", method[4])) method[4] = 0;
-  if (!load_data("parameters.txt", "method_fall", method[5])) method[5] = 0;
-  if (!load_data("parameters.txt", "method_pain", method[6])) method[6] = 0;
-  if (!load_data("parameters.txt", "method_kneel", method[7])) method[7] = 0;
   std::string message = "lPkt=" + std::to_string(lPkt);
-  message += ", method_help=" + std::to_string(method[2]);
-  message += ", method_faint=" + std::to_string(method[3]);
-  message += ", method_fight=" + std::to_string(method[4]);
-  message += ", method_fall=" + std::to_string(method[5]);
-  message += ", method_pain=" + std::to_string(method[6]);
-  message += ", method_kneel=" + std::to_string(method[7]);
+
+  for (size_t i = 2; i < method.size(); ++i) {
+    std::string beh_name = beh_descr.FindBehavior(i).name;
+    if (!load_data("parameters.txt", "method_" + beh_name, method[i])) method[i] = 0;
+    message += ", method_" + beh_name + "=" + std::to_string(method[i]);
+  }
 
   // Reading descriptor from file
   std::ifstream input;
@@ -112,41 +111,11 @@ BehaviorFilter::BehaviorFilter(const std::string &path) {
     temp_nxtStts.clear();
   }
 
-  // Filter description. It shows up on blob with detected behavior
-  switch (behaviorType) {
-    case 1:  // Wtargniecie na obszar chroniony
-      this->behaviorDescription = "INTRUZ";
-      break;
-    case 2:  // Wolanie o pomoc
-      this->behaviorDescription = "POMOCY";
-      break;
-    case 3:  // Omdlenie
-      this->behaviorDescription = "OMDLENIE";
-      break;
-    case 4:  // Bojka
-      this->behaviorDescription = "BOJKA";
-      break;
-    case 5:  // OMDLENIE bez czekania
-      this->behaviorDescription = "UPADEK";
-      break;
-    case 6:  // Nasze wymioty
-      this->behaviorDescription = "CIERPIENIE";
-      break;
-    case 7:  // Wiaze buta
-      this->behaviorDescription = "KUCANIE";
-      break;
-    case 8:
-      this->behaviorDescription = "IDZIE";
-      break;
-    case 9:
-      this->behaviorDescription = "STOI";
-      break;
-    case 10:
-      this->behaviorDescription = "BIEGNIE";
-      break;
-    default:
-      this->behaviorDescription = "Nieznany typ zachowania";
-  }
+  // Filter description. It shows up on blob with detected behavior, some of
+  // them are hardcoded to keep legacy behavior decriptors compatibile and new
+  // ones are defined in 'behavior_names_list.txt'.
+  behaviorDescription = beh_descr.FindBehavior(behaviorType).name;
+
   message = "description=" + behaviorDescription + ", " + message;
   BF_LogOnce(message, LogLevel::kSetup);
 
@@ -162,7 +131,8 @@ BehaviorFilter::BehaviorFilter(const std::string &path) {
   delete[] buffer;
 }
 
-BehaviorFilter::BehaviorFilter(const std::string &path, int gs) {
+BehaviorFilter::BehaviorFilter(const std::string &path, int gs)
+    : descriptor_path(path)  {
   // Reading descriptor from file
   std::ifstream input;
   input.open(path, std::ios_base::binary);
@@ -213,41 +183,12 @@ BehaviorFilter::BehaviorFilter(const std::string &path, int gs) {
     temp_StateHandles[i]->SetNextStates(temp_nxtStts);
     temp_nxtStts.clear();
   }
-  // Filter description. It shows up on blob with detected behavior
-  switch (behaviorType) {
-    case 1:  // Wtargniecie na obszar chroniony
-      this->behaviorDescription = "INTRUZ";
-      break;
-    case 2:  // Wolanie o pomoc
-      this->behaviorDescription = "POMOCY";
-      break;
-    case 3:  // Omdlenie
-      this->behaviorDescription = "OMDLENIE";
-      break;
-    case 4:  // Bojka
-      this->behaviorDescription = "BOJKA";
-      break;
-    case 5:  // OMDLENIE bez czekania
-      this->behaviorDescription = "UPADEK";
-      break;
-    case 6:  // Nasze wymioty
-      this->behaviorDescription = "CIERPIENIE";
-      break;
-    case 7:  // Wiaze buta
-      this->behaviorDescription = "KUCANIE";
-      break;
-    case 8:
-      this->behaviorDescription = "IDZIE";
-      break;
-    case 9:
-      this->behaviorDescription = "STOI";
-      break;
-    case 10:
-      this->behaviorDescription = "BIEGNIE";
-      break;
-    default:
-      this->behaviorDescription = "Nieznany typ zachowania";
-  }
+  // Filter description. It shows up on blob with detected behavior, some of
+  // them are hardcoded to keep legacy behavior decriptors compatibile and new
+  // ones are defined in 'behavior_names_list.txt'.
+  BehaviorDescription beh_descr;
+  behaviorDescription = beh_descr.FindBehavior(behaviorType).name;
+
   firstState = temp_StateHandles[0];
   currentState = firstState;
   found = false;
@@ -263,66 +204,32 @@ BehaviorFilter::~BehaviorFilter() {
   method.clear();
 }
 
-// void BehaviorFilter::Check(vector<PointNorm> input) {
-//  currentState = currentState->ChangeState(input);
-//  // Przypadek, gdy zbyt dlugo czekalismy na nastepny stan
-//  if (currentState == NULL) currentState = firstState;
-//  // Jesli przeszlismy wlasnie do ostatniego to juz to wykrywamy
-//  if (currentState->lastState) {
-//    char temp_oNum;
-//    sprintf(temp_oNum, ", objNum: %d.", this->objNumber);
-//    this->behaviorDescription.append(temp_oNum);
-//    // strcat(temp_msg, temp_oNum);
-//    BF_LOG(this->behaviorDescription, LogLevel::kDefault);
-//  }
-//
-//  if (found || currentState->lastState) {
-//    currentState = firstState;
-//    found = true;
-//  } else
-//    found = false;
-//}
-
 void BehaviorFilter::Check(std::vector<PointNorm> input, bool isMoving) {
   currentState = currentState->ChangeState(input, isMoving);
   // Przypadek, gdy zbyt dlugo czekalismy na nastepny stan
   if (currentState == NULL) currentState = firstState;
   // Jesli przeszlismy wlasnie do ostatniego to juz to wykrywamy
   if (currentState->lastState) {
-    this->behaviorDescription.append(", objNum: " + std::to_string(objNumber));
-    BF_LOG(this->behaviorDescription, LogLevel::kDefault);
+    std::string msg = behaviorDescription +
+                      ", objNum: " + std::to_string(objNumber) +
+                      ", from descriptor: " + descriptor_path;
+    BF_LOG(msg, LogLevel::kDefault);
   }
 
   if (found || currentState->lastState) {
     currentState = firstState;
     found = true;
-  } else
+  } else {
     found = false;
+  }
 }
 
 std::vector<int> BehaviorFilter::BehaviorType() {
   std::vector<int> result;
   if (found) {
-    if (behaviorDescription == "INTRUZ")
-      result.push_back(1);
-    else if (behaviorDescription == "POMOCY")
-      result.push_back(2);
-    else if (behaviorDescription == "OMDLENIE")
-      result.push_back(3);
-    else if (behaviorDescription == "BOJKA")
-      result.push_back(4);
-    else if (behaviorDescription == "UPADEK")
-      result.push_back(5);
-    else if (behaviorDescription == "CIERPIENIE")
-      result.push_back(6);
-    else if (behaviorDescription == "KUCANIE")
-      result.push_back(7);
-    else if (behaviorDescription == "IDZIE")
-      result.push_back(8);
-    else if (behaviorDescription == "STOI")
-      result.push_back(9);
-    else if (behaviorDescription == "BIEGNIE")
-      result.push_back(10);
+    BehaviorDescription beh_descr;
+    auto beh_type = beh_descr.FindBehavior(behaviorDescription);
+    if (beh_type.name != "unknown") result.push_back(beh_type.id);
   }
   return result;
 }

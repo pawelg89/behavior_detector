@@ -84,6 +84,8 @@ class Logger {
  private:
   Logger();  // Constructor? (the {} brackets) are needed here.
   ~Logger();
+  void Log(const std::string &name, const std::string &msg, const LogLevel level,
+           const bool new_line = true);
 
   bd::LogLevel log_level_;
   std::ofstream log_;

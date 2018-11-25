@@ -1,4 +1,8 @@
 #pragma once
+
+#include <string>
+#include <vector>
+
 namespace bd {
 // Structure used in Smart Monitor project.
 #ifndef POINTNORM
@@ -16,6 +20,9 @@ class PointNorm {
   }
   ~PointNorm() {}
 };
+
+std::string to_string(const PointNorm &pt);
+std::string to_string(const std::vector<PointNorm> &pts);
 #endif
 
 enum CAM_PARAM {
