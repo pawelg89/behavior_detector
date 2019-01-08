@@ -90,6 +90,7 @@ BehaviorFilter::BehaviorFilter(const std::string& path)
       new BehaviorState(thresholds[0], this->method[behaviorType], this->lPkt));
   temp_StateHandles[0]->sttNumber = 0;
   temp_StateHandles[0]->behType = behaviorType;
+  temp_StateHandles[0]->descriptor_path = path;
   // temp_StateHandles[0]->SetIdxStop( (int)behaviorDescr[0].size() );
   for (int i = 0; i < header[0]; i++) {
     temp_StateHandles.push_back(
@@ -97,6 +98,7 @@ BehaviorFilter::BehaviorFilter(const std::string& path)
                           this->method[behaviorType], this->lPkt));
     temp_StateHandles[i + 1]->sttNumber = i + 1;
     temp_StateHandles[i + 1]->behType = behaviorType;
+    temp_StateHandles[i + 1]->descriptor_path = path;
   }
 
   // Create connections
@@ -162,6 +164,7 @@ BehaviorFilter::BehaviorFilter(const std::string &path, int gs)
   temp_StateHandles.push_back(new BehaviorState(threshold));  
   temp_StateHandles[0]->sttNumber = 0;
   temp_StateHandles[0]->behType = behaviorType;
+  temp_StateHandles[0]->descriptor_path = path;
   for (int i = 0; i < header[0]; i++) {
     if (i == (header[0] - 1))
       temp_StateHandles.push_back(
@@ -171,6 +174,7 @@ BehaviorFilter::BehaviorFilter(const std::string &path, int gs)
           new BehaviorState(behaviorDescr[i], false, threshold));
     temp_StateHandles[i + 1]->sttNumber = i + 1;
     temp_StateHandles[i + 1]->behType = behaviorType;
+    temp_StateHandles[i + 1]->descriptor_path = path;
   }
   // Create connections
   for (int i = 0; i < statesNumber; i++) {

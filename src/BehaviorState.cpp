@@ -2,6 +2,10 @@
 #include "..\..\stdafx.h"
 #include "..\includes\logger.h"
 
+
+#include <opencv\cv.h>
+#include <opencv2\highgui.hpp>
+
 namespace bd {
   namespace {
 int BS_LOG(const std::string &msg, const LogLevel level, bool new_line = true) {
@@ -15,6 +19,7 @@ int BS_LogOnce(const std::string &msg, const LogLevel level,
 //----------------- C O N S T R U C T O R S -----------------------------------
 BehaviorState::BehaviorState(double thresh, int method, int lPkt) {
   lastState = false;
+  if (!load_data("parameters.txt", "visualize_state_compare", visualize)) visualize = false;
 
   idleCounter = 0;
   threshold = thresh;
@@ -57,6 +62,7 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput, bool isLast,
                              double thresh, int method, int lPkt) {
   acceptableInput = accInput;
   lastState = isLast;
+  if (!load_data("parameters.txt", "visualize_state_compare", visualize)) visualize = false;
 
   threshold = thresh;
   idleCounter = 0;
@@ -99,6 +105,7 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput,
   acceptableInput = accInput;
   nextStates = nextstts;
   lastState = isLast;
+  if (!load_data("parameters.txt", "visualize_state_compare", visualize)) visualize = false;
 
   threshold = thresh;
   idleCounter = 0;
@@ -142,6 +149,7 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput,
   acceptableInput = accInput;
   nextStates = nextstts;
   lastState = isLast;
+  if (!load_data("parameters.txt", "visualize_state_compare", visualize)) visualize = false;
   stateDescription = sttDescr;
 
   threshold = thresh;
@@ -248,36 +256,10 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
   double bestDistance = (double)INT_MAX;
   for (int i = 0; i < (int)nextStates.size(); i++) {
     double tempDistance = 0.0;
-    int mistakes;
-    switch (methodIdxStart) {
-      case 11:
-        if (behType == 6 || behType == 7)
-          mistakes = (int)(0.15 * (nextStates[i]->methodIdxStop -
-                                   nextStates[i]->methodIdxStart) +
-                           0.5);
-        else
-          mistakes = (int)(0.35 * (nextStates[i]->methodIdxStop -
-                                   nextStates[i]->methodIdxStart) +
-                           0.5);
-        break;
-      case 6:
-        if (behType == 6 || behType == 7)
-          mistakes = 0;
-        else
-          mistakes = 1;
-        break;
-      case 1:
-        if (behType == 6 || behType == 7)
-          mistakes = 0;
-        else
-          mistakes = 1;
-        break;
-      default:
-        mistakes = (int)(0.12 * (nextStates[i]->methodIdxStop -
-                                 nextStates[i]->methodIdxStart) +
-                         0.5);
-        break;
-    }
+    int mistakes = GetAcceptedMissmatchCount(i);
+    double weighted_threshold =
+        (nextStates[i]->methodIdxStop - nextStates[i]->methodIdxStart) *
+        nextStates[i]->threshold;
     
     std::string msg = "nextStates[" + std::to_string(i) +
                       "]:" + to_string(nextStates[i]->acceptableInput);
@@ -286,22 +268,22 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
     BS_LOG(msg, LogLevel::kDebug);
     std::string debug_msg =
         "States being compared[" + std::to_string(i) + "]: ";
+
+    cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
     for (int j = nextStates[i]->methodIdxStart;
          j < nextStates[i]->methodIdxStop && j < (int)inputVector.size() &&
          j < (int)nextStates[i]->acceptableInput.size();
          j++) {
-      tempDistance +=
-          GetDist(inputVector[j], nextStates[i]->acceptableInput[j]);
+      double dist_j = GetDist(inputVector[j], nextStates[i]->acceptableInput[j]);
+      tempDistance += dist_j;
+      auto line_color = cv::Scalar(0, 0, 255);
       debug_msg += "[" + to_string(inputVector[j]) + "?=" +
                   to_string(nextStates[i]->acceptableInput[j]) + "]";
-      if ((GetDist(inputVector[j], nextStates[i]->acceptableInput[j]) <=
-           nextStates[i]->threshold) ||
-          (nextStates[i]->methodIdxStart > 11 &&
-           tempDistance <=
-               (nextStates[i]->methodIdxStop - nextStates[i]->methodIdxStart) *
-                   nextStates[i]->threshold)) {
+      if ((dist_j <= nextStates[i]->threshold)
+          /*|| (nextStates[i]->methodIdxStart > 11 && tempDistance <= weighted_threshold)*/) {
         // pt_match_count++;
         accepted = true;
+        line_color = cv::Scalar(0, 255, 0);
         if ((j == methodIdxStop - 1) && (tempDistance < bestDistance)) {
           chosenState = i;
           bestDistance = tempDistance;
@@ -312,11 +294,21 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
         accepted = false;
         break;
       }
+
+      // Mark compared points
+      if (visualize) {
+        auto inputPt = cv::Point((int)(inputVector[0].x * inputVector[j].x + 320), 
+                                 (int)(inputVector[0].y * inputVector[j].y + 240));
+        auto nextSttPt = cv::Point((int)(nextStates[i]->acceptableInput[0].x * nextStates[i]->acceptableInput[j].x + 320), 
+                                   (int)(nextStates[i]->acceptableInput[0].y * nextStates[i]->acceptableInput[j].y + 240));
+        cv::line(debug_img, inputPt, nextSttPt, line_color);
+        cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
+        cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
+      }
     }
-    if (tempDistance < 0.001)
-      BS_LOG(debug_msg, LogLevel::kKilo);
-    else
-      BS_LOG(debug_msg, LogLevel::kDebug);
+    if (visualize) Visualize(accepted, debug_img, i);
+    if (tempDistance < 0.001) BS_LOG(debug_msg, LogLevel::kKilo);
+    else BS_LOG(debug_msg, LogLevel::kDebug);
   }
   // If possible move to that state
   if (accepted) {
@@ -347,6 +339,52 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
     }
     return this;
   }
+}
+
+void BehaviorState::Visualize(bool accepted, cv::Mat &debug_img, int i) {
+  int wait_time = 1;
+  auto color = cv::Scalar(255, 255, 255);
+  if (accepted) {
+    wait_time = 2000;
+    color = cv::Scalar(0, 255, 0);
+  }
+  cv::putText(debug_img, descriptor_path, cv::Point(15,15), CV_FONT_VECTOR0, 0.45, color);
+  cv::imshow("StateCompare:"+std::to_string(i), debug_img);
+  cv::waitKey(wait_time);
+}
+
+int BehaviorState::GetAcceptedMissmatchCount(int i) {
+  int mistakes = 0;
+  switch (methodIdxStart) {
+    case 11:
+      if (behType == 6 || behType == 7)
+        mistakes = (int)(0.15 * (nextStates[i]->methodIdxStop -
+                                 nextStates[i]->methodIdxStart) +
+                          0.5);
+      else
+        mistakes = (int)(0.35 * (nextStates[i]->methodIdxStop -
+                                 nextStates[i]->methodIdxStart) +
+                          0.5);
+      break;
+    case 6:
+      if (behType == 6 || behType == 7)
+        mistakes = 0;
+      else
+        mistakes = 1;
+      break;
+    case 1:
+      if (behType == 6 || behType == 7)
+        mistakes = 0;
+      else
+        mistakes = 1;
+      break;
+    default:
+      mistakes = (int)(0.12 * (nextStates[i]->methodIdxStop -
+                               nextStates[i]->methodIdxStart) +
+                        0.5);
+      break;
+  }
+  return mistakes;
 }
 
 // BehaviorState* BehaviorState::ChangeState(vector<PointNorm> inputVector/*,

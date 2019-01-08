@@ -33,8 +33,12 @@ class BehaviorState {
   /*Function used to collect statistics about current state points
    * constellation.*/
   void SaveStatistic(std::vector<PointNorm> inputVector);
+  void Visualize(bool accepted, cv::Mat &debug_img, int i);
+  int GetAcceptedMissmatchCount(int i);
 
  public:
+   bool visualize;
+  std::string descriptor_path;
   bool lastState;
   int sttNumber;
   int behType;
