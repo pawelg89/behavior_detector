@@ -12,4 +12,8 @@ std::string to_string(const std::vector<PointNorm> &pts) {
   return pts_str;
 }
 
+cv::Point ToCvPoint(const PointNorm &pt) {
+  return cv::Point(pt.x, pt.y);
+}
+
 }  // namespace bd

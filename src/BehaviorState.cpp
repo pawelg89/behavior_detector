@@ -250,24 +250,16 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
                                           bool isMoving) {
   BS_LOG("ChangeState()", LogLevel::kKilo, true);
   if (statsON) SaveStatistic(inputVector);
-  bool accepted = false;
+  bool accepted = true;
   // Search best possible next state
   int chosenState = 0;
   double bestDistance = (double)INT_MAX;
+
   for (int i = 0; i < (int)nextStates.size(); i++) {
     double tempDistance = 0.0;
     int mistakes = GetAcceptedMissmatchCount(i);
-    double weighted_threshold =
-        (nextStates[i]->methodIdxStop - nextStates[i]->methodIdxStart) *
-        nextStates[i]->threshold;
-    
-    std::string msg = "nextStates[" + std::to_string(i) +
-                      "]:" + to_string(nextStates[i]->acceptableInput);
-    BS_LOG(msg, LogLevel::kDebug);
-    msg = "inputVector[" + std::to_string(i) + "]:" + to_string(inputVector);
-    BS_LOG(msg, LogLevel::kDebug);
-    std::string debug_msg =
-        "States being compared[" + std::to_string(i) + "]: ";
+    std::string debug_msg = PrepareDebugMessage(inputVector, i);
+    MatchDescriptors(inputVector, i);
 
     cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
     for (int j = nextStates[i]->methodIdxStart;
@@ -279,53 +271,157 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
       auto line_color = cv::Scalar(0, 0, 255);
       debug_msg += "[" + to_string(inputVector[j]) + "?=" +
                   to_string(nextStates[i]->acceptableInput[j]) + "]";
-      if ((dist_j <= nextStates[i]->threshold)
-          /*|| (nextStates[i]->methodIdxStart > 11 && tempDistance <= weighted_threshold)*/) {
-        // pt_match_count++;
-        accepted = true;
+      if (dist_j <= nextStates[i]->threshold) {
         line_color = cv::Scalar(0, 255, 0);
         if ((j == methodIdxStop - 1) && (tempDistance < bestDistance)) {
           chosenState = i;
           bestDistance = tempDistance;
         }
       } else if (mistakes > 0) {
+        BS_LOG(descriptor_path + " mistakes=" + std::to_string(mistakes), LogLevel::kKilo);
         mistakes--;
       } else {
+        BS_LOG(descriptor_path + " REJECTED!", LogLevel::kKilo);
         accepted = false;
         break;
       }
 
       // Mark compared points
-      if (visualize) {
-        auto inputPt = cv::Point((int)(inputVector[0].x * inputVector[j].x + 320), 
-                                 (int)(inputVector[0].y * inputVector[j].y + 240));
-        auto nextSttPt = cv::Point((int)(nextStates[i]->acceptableInput[0].x * nextStates[i]->acceptableInput[j].x + 320), 
-                                   (int)(nextStates[i]->acceptableInput[0].y * nextStates[i]->acceptableInput[j].y + 240));
-        cv::line(debug_img, inputPt, nextSttPt, line_color);
-        cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
-        cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
-      }
+      if (visualize) VisualizeDraw(accepted, debug_img, inputVector, i, j, line_color);
     }
-    if (visualize) Visualize(accepted, debug_img, i);
+    if (visualize) VisualizeShow(accepted, debug_img, i);
     if (tempDistance < 0.001) BS_LOG(debug_msg, LogLevel::kKilo);
     else BS_LOG(debug_msg, LogLevel::kDebug);
   }
-  // If possible move to that state
+  // If possible move to that state, if not update idle counter.
+  std::pair<bool, BehaviorState*> possible_state = 
+    GoToState(std::pair<bool, int>{accepted, chosenState}, isMoving);
+  if (possible_state.first) return possible_state.second;
+  else return CheckIdleCounter();
+}
+
+void BehaviorState::MatchDescriptors(const std::vector<PointNorm>& inputVector, const int i) {
+  const int idx_start = nextStates[i]->methodIdxStart;
+  const int idx_stop = nextStates[i]->methodIdxStop;
+  const int pt_count = idx_stop - idx_start;
+
+  const PointNorm in_dim(inputVector[0].x, inputVector[0].y);
+  const PointNorm descr_dim(nextStates[i]->acceptableInput[0].x, 
+                            nextStates[i]->acceptableInput[0].y);
+
+  std::vector<PointNorm> input; input.reserve(pt_count);
+  for (int j = idx_start; j < idx_stop && j < (int)inputVector.size(); ++j) {
+    input.push_back(inputVector[j]);
+  }
+  std::vector<PointNorm> descr; descr.reserve(pt_count);
+  for (int j = idx_start; j < idx_stop; ++j) {
+    descr.push_back(nextStates[i]->acceptableInput[j]);
+  }
+
+  cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
+  for (const auto& pt : descr) {
+    auto nextSttPt = cv::Point(int(descr_dim.x * pt.x + 320), int(descr_dim.y * pt.y + 240));
+    cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
+  }
+  for (const auto& pt : input) {
+    auto inputPt = cv::Point(int(in_dim.x * pt.x + 320), int(in_dim.y * pt.y + 240));
+    cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
+  }
+  cv::putText(debug_img, descriptor_path, cv::Point(10, 10), CV_FONT_VECTOR0, 0.4, cv::Scalar(255,255,255));
+  cv::imshow("all points", debug_img);
+  
+  const size_t in_size = input.size();
+  const size_t descr_size = descr.size();
+  std::cout << "input.size() = " << in_size << std::endl;
+  std::cout << "descr.size() = " << descr_size << std::endl;
+  for (size_t n = 0; n < in_size || n < descr_size; ++n) {
+    cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
+    double distance = 0.0;
+    for (size_t m = 0; m < descr_size && m < in_size; ++m) {
+      const size_t temp_idx = 
+        (in_size > descr_size) ? (n + m) % in_size 
+                               : (n + m) % descr_size;
+      double dist = 
+        (in_size > descr_size) ? GetDist(input[temp_idx], descr[m]) 
+                               : GetDist(input[m], descr[temp_idx]);
+      if (in_size > descr_size)
+        std::cout << "|input[" << temp_idx << "] - descr[" << m << "]| = " << dist << std::endl;
+      else
+        std::cout << "|input[" << m << "] - descr[" << temp_idx << "]| = " << dist << std::endl;
+      distance += dist;
+
+      //----------------------------------------------------------------------
+      cv::Point inputPt, nextSttPt;
+      if (in_size > descr_size) {
+        inputPt = cv::Point(int(in_dim.x * input[temp_idx].x + 320),
+                            int(in_dim.y * input[temp_idx].y + 240));
+        nextSttPt = cv::Point(int(descr_dim.x * descr[m].x + 320), 
+                              int(descr_dim.y * descr[m].y + 240));
+      } else {
+        inputPt = cv::Point(int(in_dim.x * input[m].x + 320),
+                            int(in_dim.y * input[m].y + 240));
+        nextSttPt = cv::Point(int(descr_dim.x * descr[temp_idx].x + 320), 
+                              int(descr_dim.y * descr[temp_idx].y + 240));
+      }
+      cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
+      cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
+
+      if (dist > nextStates[i]->threshold)
+        cv::line(debug_img, inputPt, nextSttPt, cv::Scalar(0,0,255));
+      else
+        cv::line(debug_img, inputPt, nextSttPt, cv::Scalar(0,255,0));
+      //----------------------------------------------------------------------
+
+      
+     // cv::imshow(descriptor_path + " matching", debug_img);
+      //cv::waitKey();
+    }
+    std::cout << "Distance: " << distance << std::endl << std::endl;
+    cv::putText(debug_img, descriptor_path + " Distance: " + std::to_string(distance),
+                cv::Point(10, 10), CV_FONT_VECTOR0, 0.4, cv::Scalar(255,255,255));
+    cv::imshow("matching", debug_img);
+    //static int match_counter = 0;
+    //cv::imwrite("matching_" + std::to_string(match_counter++) + ".png", debug_img);
+    cv::waitKey();
+  }
+
+}
+
+std::string BehaviorState::PrepareDebugMessage(
+    const std::vector<PointNorm>& inputVector, const int i) {
+  std::string msg = "nextStates[" + std::to_string(i) + "]:" + to_string(nextStates[i]->acceptableInput);
+  BS_LOG(msg, LogLevel::kDebug);
+  msg = "inputVector[" + std::to_string(i) + "]:" + to_string(inputVector);
+  BS_LOG(msg, LogLevel::kDebug);
+  return "States being compared[" + std::to_string(i) + "]: ";
+}
+
+std::pair<bool, BehaviorState*>
+BehaviorState::GoToState(std::pair<bool, int> next_state, bool is_moving) {
+  auto accepted = next_state.first;
+  auto chosen_state = next_state.second;
+  std::pair<bool, BehaviorState*> result{false, NULL};
   if (accepted) {
-    if (nextStates[chosenState]->lastState == true && behType == 3) {
-      if (!isMoving) {
+    if (nextStates[chosen_state]->lastState == true && behType == 3) {
+      if (!is_moving) {
         if (faintCounter <= 1) {
           idleCounter = 0;
-          return this->nextStates[chosenState];
+          result.first = true;
+          result.second = this->nextStates[chosen_state];
         } else {
           faintCounter--;
         }
       }
     } else {
       idleCounter = 0;
-      return this->nextStates[chosenState];
+      result.first = true;
+      result.second = this->nextStates[chosen_state];
     }
   }
+  return result;
+}
+
+BehaviorState* BehaviorState::CheckIdleCounter() {
   if (idleCounter >= 70) {
     std::string msg =
         "Idle counter filled. Returning to the first state. Behavior: " +
@@ -341,11 +437,24 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
   }
 }
 
-void BehaviorState::Visualize(bool accepted, cv::Mat &debug_img, int i) {
-  int wait_time = 1;
+void BehaviorState::VisualizeDraw(bool accepted, cv::Mat& debug_img,
+                                  const std::vector<PointNorm>& inputVector,
+                                  const int i, const int j,
+                                  const cv::Scalar line_color) {
+  auto inputPt = cv::Point((int)(inputVector[0].x * inputVector[j].x + 320), 
+                           (int)(inputVector[0].y * inputVector[j].y + 240));
+  auto nextSttPt = cv::Point((int)(nextStates[i]->acceptableInput[0].x * nextStates[i]->acceptableInput[j].x + 320), 
+                             (int)(nextStates[i]->acceptableInput[0].y * nextStates[i]->acceptableInput[j].y + 240));
+  cv::line(debug_img, inputPt, nextSttPt, line_color);
+  cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
+  cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
+}
+
+void BehaviorState::VisualizeShow(bool accepted, cv::Mat &debug_img, int i) {
+  int wait_time = 0;
   auto color = cv::Scalar(255, 255, 255);
   if (accepted) {
-    wait_time = 2000;
+    //wait_time = 1000;
     color = cv::Scalar(0, 255, 0);
   }
   cv::putText(debug_img, descriptor_path, cv::Point(15,15), CV_FONT_VECTOR0, 0.45, color);

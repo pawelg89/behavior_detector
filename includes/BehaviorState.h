@@ -33,8 +33,17 @@ class BehaviorState {
   /*Function used to collect statistics about current state points
    * constellation.*/
   void SaveStatistic(std::vector<PointNorm> inputVector);
-  void Visualize(bool accepted, cv::Mat &debug_img, int i);
+  void VisualizeDraw(bool accepted, cv::Mat &debug_img,
+                     const std::vector<PointNorm>& inputVector, const int i,
+                     const int j, const cv::Scalar line_color);
+  void VisualizeShow(bool accepted, cv::Mat &debug_img, int i);
   int GetAcceptedMissmatchCount(int i);
+  void MatchDescriptors(const std::vector<PointNorm> &inputVector, const int i);
+  BehaviorState* CheckIdleCounter();
+  std::pair<bool, BehaviorState *> GoToState(std::pair<bool, int> next_state,
+                                             bool is_moving);
+  std::string PrepareDebugMessage(const std::vector<PointNorm> &inputVector,
+                                  const int i);
 
  public:
    bool visualize;
