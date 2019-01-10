@@ -25,7 +25,6 @@ class PointNorm {
 
 std::string to_string(const PointNorm &pt);
 std::string to_string(const std::vector<PointNorm> &pts);
-cv::Point ToCvPoint(const PointNorm &pt);
 #endif
 
 enum CAM_PARAM {

@@ -20,6 +20,7 @@ int BS_LogOnce(const std::string &msg, const LogLevel level,
 BehaviorState::BehaviorState(double thresh, int method, int lPkt) {
   lastState = false;
   if (!load_data("parameters.txt", "visualize_state_compare", visualize)) visualize = false;
+  if (!load_data("parameters.txt", "show_debug_messages", show_debug_msgs)) show_debug_msgs = false;
 
   idleCounter = 0;
   threshold = thresh;
@@ -63,6 +64,7 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput, bool isLast,
   acceptableInput = accInput;
   lastState = isLast;
   if (!load_data("parameters.txt", "visualize_state_compare", visualize)) visualize = false;
+  if (!load_data("parameters.txt", "show_debug_messages", show_debug_msgs)) show_debug_msgs = false;
 
   threshold = thresh;
   idleCounter = 0;
@@ -106,6 +108,7 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput,
   nextStates = nextstts;
   lastState = isLast;
   if (!load_data("parameters.txt", "visualize_state_compare", visualize)) visualize = false;
+  if (!load_data("parameters.txt", "show_debug_messages", show_debug_msgs)) show_debug_msgs = false;
 
   threshold = thresh;
   idleCounter = 0;
@@ -150,6 +153,7 @@ BehaviorState::BehaviorState(std::vector<PointNorm> accInput,
   nextStates = nextstts;
   lastState = isLast;
   if (!load_data("parameters.txt", "visualize_state_compare", visualize)) visualize = false;
+  if (!load_data("parameters.txt", "show_debug_messages", show_debug_msgs)) show_debug_msgs = false;
   stateDescription = sttDescr;
 
   threshold = thresh;
@@ -256,42 +260,25 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
   double bestDistance = (double)INT_MAX;
 
   for (int i = 0; i < (int)nextStates.size(); i++) {
-    double tempDistance = 0.0;
-    int mistakes = GetAcceptedMissmatchCount(i);
+    int mismatch = GetAcceptedMissmatchCount(i);
     std::string debug_msg = PrepareDebugMessage(inputVector, i);
-    MatchDescriptors(inputVector, i);
+    MatchDistance match = MatchDescriptors(inputVector, i);
 
-    cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
-    for (int j = nextStates[i]->methodIdxStart;
-         j < nextStates[i]->methodIdxStop && j < (int)inputVector.size() &&
-         j < (int)nextStates[i]->acceptableInput.size();
-         j++) {
-      double dist_j = GetDist(inputVector[j], nextStates[i]->acceptableInput[j]);
-      tempDistance += dist_j;
-      auto line_color = cv::Scalar(0, 0, 255);
-      debug_msg += "[" + to_string(inputVector[j]) + "?=" +
-                  to_string(nextStates[i]->acceptableInput[j]) + "]";
-      if (dist_j <= nextStates[i]->threshold) {
-        line_color = cv::Scalar(0, 255, 0);
-        if ((j == methodIdxStop - 1) && (tempDistance < bestDistance)) {
+    if (match.distance <= match.assigned * nextStates[i]->threshold) {
+      if (match.unassigned <= mismatch) {
+        if (match.distance < bestDistance) {
           chosenState = i;
-          bestDistance = tempDistance;
+          bestDistance = match.distance;
         }
-      } else if (mistakes > 0) {
-        BS_LOG(descriptor_path + " mistakes=" + std::to_string(mistakes), LogLevel::kKilo);
-        mistakes--;
       } else {
-        BS_LOG(descriptor_path + " REJECTED!", LogLevel::kKilo);
         accepted = false;
-        break;
+        BS_LOG(descriptor_path + " REJECTED BY TOO MANY UNASSIGNED POINTS!",
+               LogLevel::kMega);
       }
-
-      // Mark compared points
-      if (visualize) VisualizeDraw(accepted, debug_img, inputVector, i, j, line_color);
+    } else {
+      accepted = false;
+      BS_LOG(descriptor_path + " REJECTED BY TOO BIG THRESHOLD!", LogLevel::kMega);
     }
-    if (visualize) VisualizeShow(accepted, debug_img, i);
-    if (tempDistance < 0.001) BS_LOG(debug_msg, LogLevel::kKilo);
-    else BS_LOG(debug_msg, LogLevel::kDebug);
   }
   // If possible move to that state, if not update idle counter.
   std::pair<bool, BehaviorState*> possible_state = 
@@ -300,91 +287,123 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
   else return CheckIdleCounter();
 }
 
-void BehaviorState::MatchDescriptors(const std::vector<PointNorm>& inputVector, const int i) {
+void UniquePushBack(std::vector<PointNorm> &vec, const PointNorm &el) {
+  bool is_unique = true;
+  for (const auto& e : vec) {
+    if (el.x == e.x && el.y == e.y) {
+      is_unique = false;
+      break;
+    }
+  }
+  if (is_unique) vec.push_back(el);
+}
+
+MatchDistance BehaviorState::MatchDescriptors(
+    const std::vector<PointNorm>& inputVector, const int i) {
+  cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
   const int idx_start = nextStates[i]->methodIdxStart;
   const int idx_stop = nextStates[i]->methodIdxStop;
   const int pt_count = idx_stop - idx_start;
-
+  //---------------------------------------------------------------------------
   const PointNorm in_dim(inputVector[0].x, inputVector[0].y);
   const PointNorm descr_dim(nextStates[i]->acceptableInput[0].x, 
                             nextStates[i]->acceptableInput[0].y);
-
+  //----------- PREPARING INPUT VECTOR AND DESCRIPTOR -------------------------
   std::vector<PointNorm> input; input.reserve(pt_count);
   for (int j = idx_start; j < idx_stop && j < (int)inputVector.size(); ++j) {
-    input.push_back(inputVector[j]);
+    UniquePushBack(input, inputVector[j]);
   }
   std::vector<PointNorm> descr; descr.reserve(pt_count);
   for (int j = idx_start; j < idx_stop; ++j) {
-    descr.push_back(nextStates[i]->acceptableInput[j]);
+    UniquePushBack(descr, nextStates[i]->acceptableInput[j]);
   }
-
-  cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
-  for (const auto& pt : descr) {
-    auto nextSttPt = cv::Point(int(descr_dim.x * pt.x + 320), int(descr_dim.y * pt.y + 240));
-    cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
+  //------------------ DISPLAY BOTH VECTORS -----------------------------------
+  if (visualize) {
+    cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
+    for (const auto& pt : descr) {
+      auto nextSttPt = cv::Point(int(descr_dim.x * pt.x + 320), int(descr_dim.y * pt.y + 240));
+      cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
+    }
+    for (const auto& pt : input) {
+      auto inputPt = cv::Point(int(in_dim.x * pt.x + 320), int(in_dim.y * pt.y + 240));
+      cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
+    }
+    cv::putText(debug_img, descriptor_path, cv::Point(10, 10), CV_FONT_VECTOR0, 0.4, cv::Scalar(255,255,255));
+    cv::imshow("all points", debug_img);
   }
-  for (const auto& pt : input) {
-    auto inputPt = cv::Point(int(in_dim.x * pt.x + 320), int(in_dim.y * pt.y + 240));
-    cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
-  }
-  cv::putText(debug_img, descriptor_path, cv::Point(10, 10), CV_FONT_VECTOR0, 0.4, cv::Scalar(255,255,255));
-  cv::imshow("all points", debug_img);
-  
+  //---------------------------------------------------------------------------
   const size_t in_size = input.size();
   const size_t descr_size = descr.size();
-  std::cout << "input.size() = " << in_size << std::endl;
-  std::cout << "descr.size() = " << descr_size << std::endl;
-  for (size_t n = 0; n < in_size || n < descr_size; ++n) {
-    cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
-    double distance = 0.0;
-    for (size_t m = 0; m < descr_size && m < in_size; ++m) {
-      const size_t temp_idx = 
-        (in_size > descr_size) ? (n + m) % in_size 
-                               : (n + m) % descr_size;
-      double dist = 
-        (in_size > descr_size) ? GetDist(input[temp_idx], descr[m]) 
-                               : GetDist(input[m], descr[temp_idx]);
-      if (in_size > descr_size)
-        std::cout << "|input[" << temp_idx << "] - descr[" << m << "]| = " << dist << std::endl;
-      else
-        std::cout << "|input[" << m << "] - descr[" << temp_idx << "]| = " << dist << std::endl;
-      distance += dist;
+  const size_t unassigned_pts = std::abs((long long)in_size - (long long)descr_size);
+  
+  DistFieldMatrix dist_matrix = CreateDistanceFieldMatrix(input,descr);
+  
+  VecDistField result = CreatePairs(dist_matrix);
 
-      //----------------------------------------------------------------------
-      cv::Point inputPt, nextSttPt;
-      if (in_size > descr_size) {
-        inputPt = cv::Point(int(in_dim.x * input[temp_idx].x + 320),
-                            int(in_dim.y * input[temp_idx].y + 240));
-        nextSttPt = cv::Point(int(descr_dim.x * descr[m].x + 320), 
-                              int(descr_dim.y * descr[m].y + 240));
-      } else {
-        inputPt = cv::Point(int(in_dim.x * input[m].x + 320),
-                            int(in_dim.y * input[m].y + 240));
-        nextSttPt = cv::Point(int(descr_dim.x * descr[temp_idx].x + 320), 
-                              int(descr_dim.y * descr[temp_idx].y + 240));
-      }
-      cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
-      cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
-
-      if (dist > nextStates[i]->threshold)
-        cv::line(debug_img, inputPt, nextSttPt, cv::Scalar(0,0,255));
-      else
-        cv::line(debug_img, inputPt, nextSttPt, cv::Scalar(0,255,0));
-      //----------------------------------------------------------------------
-
-      
-     // cv::imshow(descriptor_path + " matching", debug_img);
-      //cv::waitKey();
+  double distance = 0.0;
+  for (const auto& df : result) {
+    distance += df.dist;
+  }
+  if (visualize) {
+    Visualize(debug_img, result, i, in_dim, descr_dim, distance, input, descr);
+    if (show_debug_msgs) {
+      std::cout << "input.size() = " << in_size << std::endl;
+      std::cout << "descr.size() = " << descr_size << std::endl;
     }
-    std::cout << "Distance: " << distance << std::endl << std::endl;
-    cv::putText(debug_img, descriptor_path + " Distance: " + std::to_string(distance),
+    cv::putText(debug_img, descriptor_path + " distance=" + std::to_string(distance),
                 cv::Point(10, 10), CV_FONT_VECTOR0, 0.4, cv::Scalar(255,255,255));
     cv::imshow("matching", debug_img);
-    //static int match_counter = 0;
-    //cv::imwrite("matching_" + std::to_string(match_counter++) + ".png", debug_img);
     cv::waitKey();
   }
+  return MatchDistance{distance, unassigned_pts, result.size()};
+}
 
+DistFieldMatrix BehaviorState::CreateDistanceFieldMatrix(const std::vector<PointNorm> &input, 
+                                                         const std::vector<PointNorm> &descr) {
+  const size_t in_size = input.size();
+  const size_t descr_size = descr.size();
+  DistFieldMatrix dist_matrix;
+  dist_matrix.resize(in_size);
+  for (size_t n = 0; n < in_size; ++n) {
+    for (size_t m = 0; m < descr_size; ++m) {
+      const double dist = GetDist(input[n], descr[m]);
+      auto dist_field = DistField{n, m, dist};
+      dist_matrix[n].push_back(dist_field);
+    }
+    std::sort(
+        dist_matrix[n].begin(), dist_matrix[n].end(),
+        [](const DistField& a, const DistField& b) { return a.dist < b.dist; });
+  }
+  std::sort(dist_matrix.begin(), dist_matrix.end(),
+            [](const VecDistField& a, const VecDistField& b) {
+              return a[0].dist < b[0].dist;
+            });
+  return dist_matrix;
+}
+
+VecDistField BehaviorState::CreatePairs(DistFieldMatrix &dist_matrix) {
+  const size_t in_size = dist_matrix.size();
+  VecDistField result; 
+  for (size_t n = 0; n < in_size; ++n) {
+    /* pick first free pair*/
+    DistField closest_pair;
+    for (const auto& df : dist_matrix[n]) {
+      if (!df.picked) {
+        closest_pair = df;
+        closest_pair.picked = true;
+        break;
+      }
+    }
+    if (closest_pair.picked) result.push_back(closest_pair);
+    else continue;
+    /* mark elements with m == closest_pair.m in remaining rows*/
+    for (size_t k = n + 1; k < in_size; ++k) {
+      for (auto& df : dist_matrix[k]) {
+        if (df.m == closest_pair.m) df.picked = true;
+      }
+    }
+  }
+  return result;
 }
 
 std::string BehaviorState::PrepareDebugMessage(
@@ -437,29 +456,39 @@ BehaviorState* BehaviorState::CheckIdleCounter() {
   }
 }
 
-void BehaviorState::VisualizeDraw(bool accepted, cv::Mat& debug_img,
-                                  const std::vector<PointNorm>& inputVector,
-                                  const int i, const int j,
-                                  const cv::Scalar line_color) {
-  auto inputPt = cv::Point((int)(inputVector[0].x * inputVector[j].x + 320), 
-                           (int)(inputVector[0].y * inputVector[j].y + 240));
-  auto nextSttPt = cv::Point((int)(nextStates[i]->acceptableInput[0].x * nextStates[i]->acceptableInput[j].x + 320), 
-                             (int)(nextStates[i]->acceptableInput[0].y * nextStates[i]->acceptableInput[j].y + 240));
-  cv::line(debug_img, inputPt, nextSttPt, line_color);
-  cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
-  cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
-}
-
-void BehaviorState::VisualizeShow(bool accepted, cv::Mat &debug_img, int i) {
-  int wait_time = 0;
-  auto color = cv::Scalar(255, 255, 255);
-  if (accepted) {
-    //wait_time = 1000;
-    color = cv::Scalar(0, 255, 0);
-  }
-  cv::putText(debug_img, descriptor_path, cv::Point(15,15), CV_FONT_VECTOR0, 0.45, color);
-  cv::imshow("StateCompare:"+std::to_string(i), debug_img);
-  cv::waitKey(wait_time);
+void BehaviorState::Visualize(cv::Mat& debug_img, const VecDistField& result, const int i,
+                              const PointNorm &in_dim, const PointNorm &descr_dim, const double distance,
+                              const std::vector<PointNorm> &input, const std::vector<PointNorm> &descr) {
+  int counter = 0;
+  for (const auto& df : result) {
+    auto color = cv::Scalar(0,255,0);
+    if (df.dist > nextStates[i]->threshold) {
+        color = cv::Scalar(0,0,255);
+    }
+    if (show_debug_msgs) std::cout << "(" << df.n << ", " << df.m << ")";
+    // Visualize input point (BLUE)
+    auto inputPt = cv::Point(int(in_dim.x * input[df.n].x + 320), 
+                             int(in_dim.y * input[df.n].y + 240));
+    cv::circle(debug_img, inputPt, 3, cv::Scalar(255,0,0));
+    // Visualize descriptor point (GREEN)
+    auto descrPt = cv::Point(int(descr_dim.x * descr[df.m].x + 320), 
+                             int(descr_dim.y * descr[df.m].y + 240));
+    cv::circle(debug_img, descrPt, 4, cv::Scalar(0,255,0));
+    if (show_debug_msgs) {
+      std::strstream msg;
+      msg << "(" << df.n << ", " << df.m << "): " << df.dist << " | " 
+          << "(" << inputPt.x << ", " << inputPt.y << ") (" 
+          << descrPt.x << ", " << descrPt.y << ")" << std::ends;
+      cv::putText(debug_img, msg.str(), cv::Point(10, 10 + 17 * ++counter),
+                  CV_FONT_VECTOR0, 0.4, cv::Scalar(50, 255, 50));    
+    }
+    cv::line(debug_img, inputPt, descrPt, color);
+    //cv::imshow("matching", debug_img);
+    //cv::waitKey();
+  } 
+  if (show_debug_msgs) std::cout << std::endl;
+  //cv::imshow("matching", debug_img);
+  //cv::waitKey();
 }
 
 int BehaviorState::GetAcceptedMissmatchCount(int i) {

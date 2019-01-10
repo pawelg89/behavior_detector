@@ -10,6 +10,21 @@
 
 namespace bd {
 
+struct DistField {
+  size_t n; //Index in input vector
+  size_t m; //Index in descriptor vector
+  double dist; //Distance between both points
+  bool picked = false; //Marks if given pair was picked already
+};
+using VecDistField = std::vector<DistField>;
+using DistFieldMatrix = std::vector<VecDistField>;
+
+struct MatchDistance {
+  double distance = (double)INT_MAX;
+  size_t unassigned = 0;
+  size_t assigned = 0;
+};
+
 class BehaviorState {
  private:
   std::vector<PointNorm> acceptableInput;
@@ -33,12 +48,27 @@ class BehaviorState {
   /*Function used to collect statistics about current state points
    * constellation.*/
   void SaveStatistic(std::vector<PointNorm> inputVector);
-  void VisualizeDraw(bool accepted, cv::Mat &debug_img,
-                     const std::vector<PointNorm>& inputVector, const int i,
-                     const int j, const cv::Scalar line_color);
-  void VisualizeShow(bool accepted, cv::Mat &debug_img, int i);
+  void Visualize(cv::Mat &debug_img, const VecDistField &result, const int i,
+                 const PointNorm &in_dim, const PointNorm &descr_dim,
+                 const double distance, const std::vector<PointNorm> &input,
+                 const std::vector<PointNorm> &descr);
   int GetAcceptedMissmatchCount(int i);
-  void MatchDescriptors(const std::vector<PointNorm> &inputVector, const int i);
+  MatchDistance MatchDescriptors(const std::vector<PointNorm> &inputVector, const int i);
+  /* Create distance field matrix M[n][m] that is sorted in two steps:
+    a) each row n is sorted in ascending order of M[const][m - swapped]
+    b) then, rows are sorted in ascending order of M[n - swapped][0]
+    Example: 
+    |2 4 3 12| a)  |2 3 4 12| b)  |1 5 6 11|
+    |5 6 1 11| ==> |1 5 6 11| ==> |2 3 4 12|
+    |8 7 9 10|     |7 8 9 10|     |7 8 9 10|
+  */
+  DistFieldMatrix CreateDistanceFieldMatrix(const std::vector<PointNorm> &input, 
+                                            const std::vector<PointNorm> &descr);
+  /* Go over distance field matrix to create a list of pairs input_pt => descr_pt.
+     If input.size() != descr.size() some points will be left unassigned and will
+     add to overall distance.
+  */
+  VecDistField CreatePairs(DistFieldMatrix &dist_matrix);
   BehaviorState* CheckIdleCounter();
   std::pair<bool, BehaviorState *> GoToState(std::pair<bool, int> next_state,
                                              bool is_moving);
@@ -46,7 +76,8 @@ class BehaviorState {
                                   const int i);
 
  public:
-   bool visualize;
+  bool visualize;
+  bool show_debug_msgs;
   std::string descriptor_path;
   bool lastState;
   int sttNumber;
