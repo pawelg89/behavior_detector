@@ -186,19 +186,14 @@ int Convex::track_objects(IplImage *img, int c) {
 
   for (int i = 0; i < (int)temp_pos.size(); i++) {
     for (int j = 0; j < (int)detected_objects.size(); j++) {
-      if (objects_mask[j] == 0)  // czy dany obiekt nie zostal juz przypisany
-      {
+      if (objects_mask[j] == 0) { // czy dany obiekt nie zostal juz przypisany
         if ((int)detected_objects[j]->marged_objects.size() == 0) {
           x = pow(double(detected_objects[j]->next_pos.x - temp_pos[i].x), 2);
           y = pow(double(detected_objects[j]->next_pos.y - temp_pos[i].y), 2);
           dist = sqrt(x + y);
         } else {
-          x = pow(
-              double(detected_objects[j]->KFilter->statePt.x - temp_pos[i].x),
-              2);
-          y = pow(
-              double(detected_objects[j]->KFilter->statePt.y - temp_pos[i].y),
-              2);
+          x = pow(double(detected_objects[j]->KFilter->statePt.x - temp_pos[i].x), 2.0);
+          y = pow(double(detected_objects[j]->KFilter->statePt.y - temp_pos[i].y), 2.0);
           dist = sqrt(x + y);
         }
         if (dist < max_dist && dist < normal_dist) {
@@ -211,12 +206,8 @@ int Convex::track_objects(IplImage *img, int c) {
     if (counter2 > -1) {
       for (int k = 0; k < (int)temp_pos.size(); k++) {
         if (points_mask[k] == 0) {
-          x = pow(
-              double(detected_objects[counter2]->next_pos.x - temp_pos[k].x),
-              2);
-          y = pow(
-              double(detected_objects[counter2]->next_pos.y - temp_pos[k].y),
-              2);
+          x = pow(double(detected_objects[counter2]->next_pos.x - temp_pos[k].x), 2.0);
+          y = pow(double(detected_objects[counter2]->next_pos.y - temp_pos[k].y), 2.0);
           dist = sqrt(x + y);
           if (dist < max_dist) {
             max_dist = dist;
@@ -329,18 +320,17 @@ int Convex::track_objects(IplImage *img, int c) {
         if (marged_with != -1) {
           marged = true;
         }
-        if (marged)  // sklejenie
-        {
+        if (marged) { // sklejenie
           detected_objects[marged_with]->marged_objects.push_back(
               detected_objects[i]);
           detected_objects.erase(detected_objects.begin() + i);
           objects_mask.erase(objects_mask.begin() + i);
           i--;
-        } else  // zgubienie
-        {
+        } else { // zgubienie
           if (detected_objects[i]->is_moving) {
-            if (!detected_objects[i]->direction_estimated)
+            if (!detected_objects[i]->direction_estimated) {
               detected_objects[i]->estimate_direction();
+            }
             detected_objects[i]->KFilter->Action(
                 cvPoint((int)(detected_objects[i]->next_pos.x +
                               detected_objects[i]->x_movement),
@@ -371,16 +361,14 @@ int Convex::track_objects(IplImage *img, int c) {
       if ((int)detected_objects[i]->marged_objects[j]->KFilter->kalmanv.size() <
               trash_high_tresh &&
           (int)detected_objects[i]->marged_objects[j]->KFilter->kalmanv.size() >
-              trash_low_tresh)  // smieci
-      {
+              trash_low_tresh) { // smieci
         delete detected_objects[i]->marged_objects[j];
         detected_objects[i]->marged_objects.erase(
             detected_objects[i]->marged_objects.begin() + j);
         continue;
       }
       if (detected_objects[i]->marged_objects[j]->prediction_life_time >
-          max_prediction_length)  // zbyt dluga predykcja
-      {
+          max_prediction_length) { // zbyt dluga predykcja
         delete detected_objects[i]->marged_objects[j];
         detected_objects[i]->marged_objects.erase(
             detected_objects[i]->marged_objects.begin() + j);
@@ -417,8 +405,7 @@ int Convex::track_objects(IplImage *img, int c) {
   }
 
   for (int i = 0; i < (int)temp_pos.size(); i++) {
-    if (points_mask[i] == 0)  // niepowizane punkty
-    {
+    if (points_mask[i] == 0) { // niepowizane punkty
       bool dismarged = false;
       int dismarged_from = -1;
       int dismarged_index = -1;

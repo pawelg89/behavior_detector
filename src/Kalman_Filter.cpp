@@ -18,7 +18,15 @@ Kalman_Filter::Kalman_Filter(void) {
 
 Kalman_Filter::~Kalman_Filter(void) {}
 
+void KF_LOG(const std::string &pt_name, Point pt, bool new_line = true) {
+  std::string msg =
+      pt_name + "(" + std::to_string(pt.x) + ", " + std::to_string(pt.y) + ")";
+  bd::LOG("KalmanFilter", msg, LogLevel::kMega, new_line);
+}
+
 void Kalman_Filter::Initialize(CvPoint pt) {
+  KF_LOG("Initializing KF", pt);
+
   KF.statePre.at<float>(0) = static_cast<float>(pt.x);
   KF.statePre.at<float>(1) = static_cast<float>(pt.y);
   KF.statePre.at<float>(2) = 0.0;
@@ -46,12 +54,6 @@ void Kalman_Filter::Initialize(CvPoint pt) {
   kalmanv.push_back(statePt);
 
   state = KF.transitionMatrix * state;
-}
-
-void KF_LOG(const std::string &pt_name, Point pt, bool new_line = true) {
-  std::string msg =
-      pt_name + "(" + std::to_string(pt.x) + ", " + std::to_string(pt.y) + ")";
-  bd::LOG("KalmanFilter", msg, LogLevel::kMega, new_line);
 }
 
 void Kalman_Filter::Action(CvPoint pt) {
@@ -88,7 +90,7 @@ void Kalman_Filter::print(IplImage *img) {
                         kalmanv[i+1], Scalar(0,255,0), 1);
                                     }*/
   // drawing circles
-  cvDrawCircle(img, statePt, 5, Scalar(255, 255, 255));
-  cvDrawCircle(img, measPt, 5, Scalar(0, 0, 255));
+  cvDrawCircle(img, statePt, 5, Scalar(255, 255, 255), 1);
+  cvDrawCircle(img, measPt, 6, Scalar(0, 0, 255));
 }
 }  // namespace bd

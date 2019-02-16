@@ -123,10 +123,10 @@ unsigned int __stdcall image_thread(void *arg) {
     }
     
     frame_lists[cameraNumber] >> next_image;
-    bd::Signaler::getInstance().SignalPathChange(next_image, "reset_tracker");
     buffer[cameraNumber] = cv::imread(next_image, CV_LOAD_IMAGE_COLOR);
     fore_lists[cameraNumber] >> next_image;
     fore_vec[cameraNumber] = cv::imread(next_image, CV_LOAD_IMAGE_GRAYSCALE);
+    bd::Signaler::getInstance().SignalPathChange(next_image, "reset_tracker");
 
     SetEvent(eventStart[cameraNumber]);
     ++gc_frames_count[cameraNumber];
