@@ -9,6 +9,13 @@
 
 namespace bd {
 
+constexpr const char* kProcessingModes[] = {"normal", "training_auto", "training_manual"};
+/* Numbering used here keeps it consistent with old numbering. */
+enum class ProcessingMode { kNormal = 5, kTrainingAuto = 8, kTrainingManual = 7 };
+bool IsProcessingMode(const std::string &mode_str);
+ProcessingMode ToProcessingMode(const std::string &mode_str);
+std::string ToString(const ProcessingMode &mode_en);
+
 class DiffImage {
  public:
   DiffImage(const std::string& file);

@@ -56,6 +56,29 @@ int DI_LOG(const std::string &msg, const LogLevel level) {
   return LOG("DiffImage", msg, level);
 }
 
+bool IsProcessingMode(const std::string &mode_str) {
+  for (const auto &mod : kProcessingModes) {
+    if (mode_str == mod) return true;
+  }
+  return false;
+}
+ProcessingMode ToProcessingMode(const std::string &mode_str) {
+  if (mode_str == kProcessingModes[0]) return ProcessingMode::kNormal;
+  if (mode_str == kProcessingModes[1]) return ProcessingMode::kTrainingAuto;
+  if (mode_str == kProcessingModes[2]) return ProcessingMode::kTrainingManual;
+  throw std::invalid_argument("Invalid processing mode: {" + mode_str + "}");
+}
+std::string ToString(const ProcessingMode &mode_en) {
+  switch (mode_en) {
+    case ProcessingMode::kNormal:      return kProcessingModes[0];
+    case ProcessingMode::kTrainingAuto: return kProcessingModes[1];
+    case ProcessingMode::kTrainingManual: return kProcessingModes[2];
+    default:
+      throw std::invalid_argument("Invalid processing mode(" +
+                                  std::to_string(static_cast<int>(mode_en)) + ")");
+  }
+}
+
 DiffImage::DiffImage(const std::string &file) : file_name(file) {}
 
 inline double GetDist(Point2f p1, Point2f p2) {
@@ -96,7 +119,8 @@ void MakeWindow(const std::string &name, const cv::Point2i size,
 void PrintDetections() {
   BehaviorDescription beh_descr;
   for (int i = 0; i < beh_descr.GetBehaviorTypesCount(); ++i) {
-    auto behavior_detections = Collector::getInstance().Get(beh_descr.FindBehavior(i).name);
+    auto behavior_detections =
+        Collector::getInstance().Get(beh_descr.FindBehavior(i).name);
     if (behavior_detections.empty()) continue;
     std::string message = "Detected " +
                           std::to_string(behavior_detections.size()) + " " +
@@ -115,10 +139,11 @@ void DiffImage::DiffImageAction2() {
   load_marker_coord(marker_coord, 4);
   ///////////////////////////////////////////////////
   int frameCounter = 0;
-  int mode;
-  if (!load_data("parameters.txt", "mode", mode)) mode = 5;
-  std::cout << "Chosen mode: " << mode << std::endl;
-  std::string temp_msg = "Chosen mode: " + std::to_string(mode);
+  std::string mode_str;
+  if (!load_data("parameters.txt", "mode", mode_str)) mode_str = "normal";
+  ProcessingMode mode = ToProcessingMode(mode_str);
+  std::cout << "Chosen mode: " << mode_str << std::endl;
+  std::string temp_msg = "Chosen mode: " + mode_str;
   DI_LOG(temp_msg, LogLevel::kSetup);
 
   long double mean_time = 0;
@@ -146,7 +171,7 @@ void DiffImage::DiffImageAction2() {
     monkeys << "pathDir" << i << ends;
     load_data("parameters.txt", pathDirX, tempDir);
     pathDir.push_back(tempDir);
-    if (mode != 7) {
+    if (mode != ProcessingMode::kTrainingManual) {
       auto win_size = cv::Point2i(400, 300);
       int win_x = 405;
       int win_y = 333;
@@ -196,9 +221,9 @@ void DiffImage::DiffImageAction2() {
       threshold(fore, fore, current_threshold, 255, CV_THRESH_BINARY);
 
       if (convex_vec[c]->is_background_ok(frame.cols, frame.rows)) {
-        if (mode == 5) convex_vec[c]->SHIELD((Mat)frame, fore, c);
-        if (mode == 7) convex_vec[c]->SHIELD((Mat)frame, fore, true);
-        if (mode == 8) convex_vec[c]->SHIELD((Mat)frame, fore, false);
+        if (mode == ProcessingMode::kNormal) convex_vec[c]->SHIELD((Mat)frame, fore, c);
+        if (mode == ProcessingMode::kTrainingManual) convex_vec[c]->SHIELD((Mat)frame, fore, true);
+        if (mode == ProcessingMode::kTrainingAuto) convex_vec[c]->SHIELD((Mat)frame, fore, false);
       } else {
         DI_LOG("!is_background_ok(frame.cols,frame.rows)", LogLevel::kWarning);
       }
@@ -207,17 +232,19 @@ void DiffImage::DiffImageAction2() {
 
       QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&stop));
       ms = (static_cast<long double>(stop) - start) / freq * 1000;
-      if (mode != 7) imshow(pathDir[c], frame);
+      if (mode != ProcessingMode::kTrainingManual) imshow(pathDir[c], frame);
 
       _char = static_cast<char>(cvWaitKey(waitTime));
       if (_char == 's') {
         char nameBuffer[100];
         sprintf(nameBuffer, "processed_frames/%d.bmp", frameCounter);
-        imwrite(nameBuffer, frame);        
+        imwrite(nameBuffer, frame);
       }
       if (_char == 'p') {
-        if (waitTime == 1) waitTime = 0;
-        else               waitTime = 1;
+        if (waitTime == 1)
+          waitTime = 0;
+        else
+          waitTime = 1;
       }
       frameCounter++;
     }
@@ -231,7 +258,8 @@ void DiffImage::DiffImageAction2() {
   Collector::getInstance().SaveData();
   stoper.PrintElapsed("saving collected data");
   PrintDetections();
-  DI_LOG("Frames processed: " + std::to_string(frameCounter), LogLevel::kDefault);
+  DI_LOG("Frames processed: " + std::to_string(frameCounter),
+         LogLevel::kDefault);
   DI_LOG("Leaving main loop. Calling destructors...", LogLevel::kDefault);
   cv::destroyAllWindows();
 
