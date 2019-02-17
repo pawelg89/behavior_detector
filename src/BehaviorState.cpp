@@ -8,7 +8,7 @@
 
 namespace bd {
   namespace {
-int BS_LOG(const std::string &msg, const LogLevel level, bool new_line = true) {
+inline int BS_LOG(const std::string &msg, const LogLevel level, bool new_line = true) {
   return LOG("BehaviorState", msg, level, new_line);
 }
 int BS_LogOnce(const std::string &msg, const LogLevel level,
@@ -259,9 +259,11 @@ BehaviorState* BehaviorState::ChangeState(std::vector<PointNorm> inputVector,
   int chosenState = 0;
   double bestDistance = (double)INT_MAX;
 
-  for (int i = 0; i < (int)nextStates.size(); i++) {
+  for (int i = 0; i < (int)nextStates.size(); ++i) {
     int mismatch = GetAcceptedMissmatchCount(i);
-    std::string debug_msg = PrepareDebugMessage(inputVector, i);
+    if (this->show_debug_msgs) {
+      std::string debug_msg = PrepareDebugMessage(inputVector, i);
+    }
     MatchDistance match = MatchDescriptors(inputVector, i);
 
     if (match.distance <= match.assigned * nextStates[i]->threshold) {
@@ -300,7 +302,7 @@ void UniquePushBack(std::vector<PointNorm> &vec, const PointNorm &el) {
 
 MatchDistance BehaviorState::MatchDescriptors(
     const std::vector<PointNorm>& inputVector, const int i) {
-  cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
+  static cv::Mat bs_debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
   const int idx_start = nextStates[i]->methodIdxStart;
   const int idx_stop = nextStates[i]->methodIdxStop;
   const int pt_count = idx_stop - idx_start;
@@ -319,17 +321,17 @@ MatchDistance BehaviorState::MatchDescriptors(
   }
   //------------------ DISPLAY BOTH VECTORS -----------------------------------
   if (visualize) {
-    cv::Mat debug_img{cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
+    bs_debug_img = {cv::Size(640, 480), CV_8UC3, cv::Scalar(0,0,0)};
     for (const auto& pt : descr) {
       auto nextSttPt = cv::Point(int(descr_dim.x * pt.x + 320), int(descr_dim.y * pt.y + 240));
-      cv::circle(debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
+      cv::circle(bs_debug_img, nextSttPt, 3, cv::Scalar(0,255,0));
     }
     for (const auto& pt : input) {
       auto inputPt = cv::Point(int(in_dim.x * pt.x + 320), int(in_dim.y * pt.y + 240));
-      cv::circle(debug_img, inputPt, 2, cv::Scalar(255,0,0));
+      cv::circle(bs_debug_img, inputPt, 2, cv::Scalar(255,0,0));
     }
-    cv::putText(debug_img, descriptor_path, cv::Point(10, 10), CV_FONT_VECTOR0, 0.4, cv::Scalar(255,255,255));
-    cv::imshow("all points", debug_img);
+    cv::putText(bs_debug_img, descriptor_path, cv::Point(10, 10), CV_FONT_VECTOR0, 0.4, cv::Scalar(255,255,255));
+    cv::imshow("all points", bs_debug_img);
   }
   //---------------------------------------------------------------------------
   const size_t in_size = input.size();
@@ -345,14 +347,14 @@ MatchDistance BehaviorState::MatchDescriptors(
     distance += df.dist;
   }
   if (visualize) {
-    Visualize(debug_img, result, i, in_dim, descr_dim, distance, input, descr);
+    Visualize(bs_debug_img, result, i, in_dim, descr_dim, distance, input, descr);
     if (show_debug_msgs) {
       std::cout << "input.size() = " << in_size << std::endl;
       std::cout << "descr.size() = " << descr_size << std::endl;
     }
-    cv::putText(debug_img, descriptor_path + " distance=" + std::to_string(distance),
+    cv::putText(bs_debug_img, descriptor_path + " distance=" + std::to_string(distance),
                 cv::Point(10, 10), CV_FONT_VECTOR0, 0.4, cv::Scalar(255,255,255));
-    cv::imshow("matching", debug_img);
+    cv::imshow("matching", bs_debug_img);
     cv::waitKey();
   }
   return MatchDistance{distance, unassigned_pts, result.size()};
@@ -406,8 +408,8 @@ VecDistField BehaviorState::CreatePairs(DistFieldMatrix &dist_matrix) {
   return result;
 }
 
-std::string BehaviorState::PrepareDebugMessage(
-    const std::vector<PointNorm>& inputVector, const int i) {
+std::string BehaviorState::PrepareDebugMessage(const std::vector<PointNorm>& inputVector, 
+                                               const int i) {
   std::string msg = "nextStates[" + std::to_string(i) + "]:" + to_string(nextStates[i]->acceptableInput);
   BS_LOG(msg, LogLevel::kDebug);
   msg = "inputVector[" + std::to_string(i) + "]:" + to_string(inputVector);
@@ -524,49 +526,6 @@ int BehaviorState::GetAcceptedMissmatchCount(int i) {
   }
   return mistakes;
 }
-
-// BehaviorState* BehaviorState::ChangeState(vector<PointNorm> inputVector/*,
-// vector<Rect> vRect*/)
-//{
-//	bool accepted = false;
-//	int mistakes = 0;
-//
-//	for(int i=0; i<acceptableInput.size(); i++)
-//	{
-//		for(int j=1; j<acceptableInput[i].size(); j++)
-//		{
-//			if(GetDist(inputVector[j],acceptableInput[i][j]) >
-// threshold)
-//			{
-//				if(mistakes>0)
-//					mistakes--;
-//				else
-//				{
-//					idleCounter++;
-//					i = acceptableInput.size();
-//					accepted = false;
-//					break;
-//				}
-//			}
-//			else
-//			{
-//				accepted = true;
-//				//nextStates[i]->rectNumber = j;
-//			}
-//
-//		}
-//		if(accepted)
-//		{
-//			idleCounter = 0;
-//			return this->nextStates[i];
-//		}
-//	}
-//	if(idleCounter >= 100000)
-//		return NULL;
-//	else
-//		return this;
-//
-//}
 
 inline double BehaviorState::GetDist(PointNorm A, PointNorm B) {
   return sqrt((A.x - B.x) * (A.x - B.x) + (A.y - B.y) * (A.y - B.y));

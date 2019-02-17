@@ -86,6 +86,7 @@ BehaviorFilter::BehaviorFilter(const std::string& path)
 
   // Utworz siatke stanow (automat)
   // first state just with a handle to next states, mostly idle state
+  temp_StateHandles.reserve(header[0]);
   temp_StateHandles.push_back(
       new BehaviorState(thresholds[0], this->method[behaviorType], this->lPkt));
   temp_StateHandles[0]->sttNumber = 0;

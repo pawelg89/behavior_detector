@@ -133,6 +133,7 @@ std::vector<bool> detected_object::IsFound() {
 
 void detected_object::LoadBehaviorFilters(bool enable) {
   auto descriptors = LoadDescriptorsList();
+  bFilter.reserve(descriptors.size());
   for (const auto &descr : descriptors) {
     bFilter.push_back(new BehaviorFilter(descr));
     double temp_threshold;

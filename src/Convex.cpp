@@ -47,7 +47,7 @@ namespace bd {
 using namespace std;
 using namespace cv;
 
-int Convex_LOG(std::string msg, LogLevel level, bool new_line = true) {
+inline int Convex_LOG(std::string msg, LogLevel level, bool new_line = true) {
   return LOG("Convex", msg, level, new_line);
 }
 
