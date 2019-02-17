@@ -76,8 +76,9 @@ BehaviorFilter::BehaviorFilter(const std::string& path)
   std::vector<std::vector<PointNorm>> behaviorDescr;
   behaviorDescr.resize(header[0]);
   int licznik_punktow = 0;
-  for (int i = 0; i < header[0]; i++) {
-    for (int j = 0; j < sizes[i]; j++) {
+  for (int i = 0; i < header[0]; ++i) {
+    behaviorDescr[i].reserve(header[1]);
+    for (int j = 0; j < sizes[i]; ++j) {
       behaviorDescr[i].push_back(
           PointNorm(buffer[licznik_punktow], buffer[licznik_punktow + 1]));
       licznik_punktow += 2;
@@ -154,8 +155,9 @@ BehaviorFilter::BehaviorFilter(const std::string &path, int gs)
   // tablica z punktami (x,y) dla deskryptorow. <serialized>
   double* buffer = new double[header[0] * header[1] * 2];
   input.read((char*)buffer, sizeof(double) * header[0] * header[1] * 2);
-  for (int i = 0; i < header[0]; i++) {
-    for (int j = 0; j < header[1]; j++) {
+  for (int i = 0; i < header[0]; ++i) {
+    behaviorDescr[i].reserve(header[1]);
+    for (int j = 0; j < header[1]; ++j) {
       behaviorDescr[i].push_back(
           PointNorm(buffer[i * 2 * header[1] + 2 * j],
                     buffer[i * 2 * header[1] + 2 * j + 1]));
