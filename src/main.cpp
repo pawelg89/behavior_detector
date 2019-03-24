@@ -1,6 +1,12 @@
 // STL includes
 #include <fstream>
 #include <strstream>
+// Windows specific
+#include<windows.h>
+#include<mmsystem.h>
+#if !defined(UNICODE) || !defined(_UNICODE)
+#define _UNICODE
+#endif
 // OpenCV
 #include <opencv\cv.h>
 #include <opencv2\highgui\highgui.hpp>
@@ -41,6 +47,9 @@ int main(int argc, char* argv[]) {
     SingleRun();
   }
 
-  // system("pause");
+  bd::Logger::getInstance().CloseStream();
+  system("move_test_results_no_args.bat");
+  PlaySound("behavior_detector/misc/resources/WALL-E-WALL-E.wav", NULL, SND_FILENAME);
+  //system("pause");
   return 0;
 }
