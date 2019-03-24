@@ -117,6 +117,7 @@ void MakeWindow(const std::string &name, const cv::Point2i size,
 }
 
 void PrintDetections() {
+  std::ofstream file("detections.txt");
   BehaviorDescription beh_descr;
   for (int i = 0; i < beh_descr.GetBehaviorTypesCount(); ++i) {
     auto behavior_detections =
@@ -129,7 +130,9 @@ void PrintDetections() {
       message += std::to_string((int)det) + " ";
     }
     DI_LOG(message, LogLevel::kDefault);
+    file << message << "\n";
   }
+  file.close();
 }
 
 void DiffImage::DiffImageAction2() {
