@@ -100,6 +100,8 @@ Logger::Logger() {
 
 Logger::~Logger() { log_.close(); }
 
+void Logger::CloseStream() { log_.close(); }
+
 std::pair<bool, LogLevel> LoadNamedLevel(const std::string &name) {
   std::string log_level_str;
   if (load_data<std::string>("parameters.txt", "log_level_" + name, log_level_str))

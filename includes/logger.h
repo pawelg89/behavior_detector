@@ -81,6 +81,8 @@ class Logger {
   int LOG(const std::string &name, const std::string &msg, const LogLevel level,
           const bool new_line = true);
 
+  void CloseStream();
+  
  private:
   Logger();  // Constructor? (the {} brackets) are needed here.
   ~Logger();
