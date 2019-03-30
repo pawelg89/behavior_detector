@@ -10,20 +10,26 @@ for i = 1 : length(text_file)
         break;
     end
 end
-short_to_show = strcat('{', short, '}')
+short = strcat('| 0', short, ' |');
 
-% Parse them into a vertical vector
-for i = 1 : length(short)
-    if short(i) ~= ' '
-        result(i) = short(i);
-    else
-        result(i) = char(10);
+% Convert to vector of integers
+idx_of_spaces = strfind(short, ' ');
+detections = zeros(1, length(idx_of_spaces) - 1);
+for i = 1 : length(idx_of_spaces) - 1
+    detections(i) = str2num(short(idx_of_spaces(i):idx_of_spaces(i+1)));
+end
+
+% fill in gaps between numbers with N/D
+ctr = 1;
+detections_filled = zeros(1, detections(length(detections)));
+for i = 1 : length(detections_filled)
+    if i == detections(ctr)
+        detections_filled(i) = detections(ctr);
+        ctr = ctr + 1;
     end
 end
 
-% Add lines that are missing in between numbers
-
-
-
+% Parse them into a vertical vector
+result = detections_filled;
 end
 
